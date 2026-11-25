@@ -37,6 +37,50 @@ notarization are still required for a frictionless public installation.
 Updating an existing installation? Quit Project Studio before replacing it in
 Applications. Your workspace data is stored separately and is not replaced by the app.
 
+## Connect your assistant and add projects
+
+The optional connector is a **skill for Codex or Claude Code** that teaches your
+assistant how to register and manage projects through Studio's supported commands.
+It does not upload your projects or set up a credential provider.
+
+### 1. Install the connector
+
+With Project Studio installed in Applications, open **Terminal** and run the command
+for your assistant. You can install both if you use both tools.
+
+**Codex**
+
+```sh
+"/Applications/Project Studio.app/Contents/MacOS/studio" integrations install --agent codex
+```
+
+**Claude Code**
+
+```sh
+"/Applications/Project Studio.app/Contents/MacOS/studio" integrations install --agent claude
+```
+
+Existing skills are not overwritten silently. Start a new assistant session after
+installation so it can discover the skill.
+
+### 2. Register an existing project
+
+Open the project's folder in Codex or Claude Code and ask:
+
+> Add this project to Project Studio. Inspect how it runs, validate the launch
+> configuration, and show me the commands for approval before registering it.
+
+The assistant checks the project's launch commands, working folders and ports,
+then registers it after your approval. Registration does not start the project.
+Reload Project Studio to see its new card, then launch it from there. Repeat for
+each project you want to add; your code stays in its original folder.
+
+Your projects still need their own dependencies and any required credentials.
+Installing the connector does not install those or configure the optional Keys view.
+
+**Prefer to do it yourself?** Use **Add project** in Studio to register a hosted URL
+or a local app with its launch configuration. No coding assistant is required.
+
 | Studio | Portfolio | Keys |
 |:---|:---|:---|
 | Organize projects, launch apps, inspect resources and stop servers. | Present selected work through ten layouts and project-level customization. | Track credential references and connect supported Infisical development workflows. |
@@ -87,7 +131,7 @@ no personal projects, credentials, recordings, browser profiles or private inven
 Use **Add project** to register a URL and optional local launch command. Dependencies
 for your own projects are managed by those projects.
 
-## Codex and Claude
+## Source-checkout CLI setup
 
 One portable skill supports both agents. From the repository:
 
@@ -96,8 +140,8 @@ python3 studio_cli.py integrations install --agent codex
 python3 studio_cli.py integrations install --agent claude
 ```
 
-In the packaged app, use `/Applications/Project Studio.app/Contents/MacOS/studio`
-instead of `python3 studio_cli.py`. Existing skills are never overwritten silently.
+For the downloaded app, use the [connector setup above](#connect-your-assistant-and-add-projects).
+These commands are for developers running from a source checkout.
 
 ```sh
 python3 studio_cli.py doctor
