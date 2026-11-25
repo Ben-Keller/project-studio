@@ -1,6 +1,7 @@
 {
   "slug": "my-web-app",
   "name": "My Web App",
+  "category": "Work",
   "url": "http://127.0.0.1:5173/",
   "health_url": "http://127.0.0.1:5173/",
   "note": "Replace the directory and command with your project's development setup.",

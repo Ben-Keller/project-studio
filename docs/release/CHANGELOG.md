@@ -1,3 +1,11 @@
+# Preview 0.2.2
+
+- Personal category presets replaced with tabs generated from your project library.
+- Add a category during registration or use Edit categories to reorganize projects.
+- Category assignments persist locally and are included in workspace backups.
+- Existing legacy project groups remain intact until explicitly reassigned.
+- Added first-user category setup instructions and packaged browser coverage.
+
 # Preview 0.2.1
 
 - Consolidated internal services in `app/`, utilities in `scripts/`, and tests in `tests/`.

@@ -81,6 +81,17 @@ Installing the connector does not install those or configure the optional Keys v
 **Prefer to do it yourself?** Use **Add project** in Studio to register a hosted URL
 or a local app with its launch configuration. No coding assistant is required.
 
+### 3. Organize your categories
+
+Choose a **Category** when adding a project, such as Work, Personal or Research.
+Type a new name to create one, or choose an existing name. Category tabs are built
+from your library, not a preset list. Leave the field blank for **Uncategorized**.
+Use **Edit categories** beside the filters to move existing projects, rename a
+category by changing its projects' names, or remove it by clearing/reassigning its
+projects. Empty categories disappear automatically. Categories are saved locally
+and included in workspace backups. When using the assistant, ask it to include
+your preferred `category` in the project registration.
+
 | Studio | Portfolio | Keys |
 |:---|:---|:---|
 | Organize projects, launch apps, inspect resources and stop servers. | Present selected work through ten layouts and project-level customization. | Track credential references and connect supported Infisical development workflows. |

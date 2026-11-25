@@ -1900,7 +1900,13 @@ def _card_photo_assets(slug: str) -> list[str]:
 
 
 def _card_group(slug: str) -> dict[str, str]:
-    return CARD_GROUPS.get(slug, {"category": "other", "agency": "none", "label": "Other"})
+    for kind in ('apps', 'links', 'planned'):
+        for item in _user_catalog[kind]:
+            if item['slug'] == slug and 'category' in item:
+                label = item['category'].strip()
+                return {"category": 'custom:' + label if label else 'other',
+                        "agency": "none", "label": label or 'Uncategorized'}
+    return CARD_GROUPS.get(slug, {"category": "other", "agency": "none", "label": "Uncategorized"})
 
 
 def _asset_url_versioned(relative_path: str) -> str:
@@ -2555,6 +2561,15 @@ def _action_result_html(title: str, message: str, rows: list[str] | None = None)
 
 
 def _index_html() -> str:
+    projects = [item for kind in ('apps', 'links', 'planned') for item in _user_catalog[kind]]
+    groups = {_card_group(item['slug'])['category']: _card_group(item['slug'])['label'] for item in projects}
+    category_buttons = ''.join(
+        f'<button type="button" data-mode="{html.escape(key)}" role="tab" aria-selected="false">{html.escape(label)}</button>'
+        for key, label in sorted(groups.items(), key=lambda pair: pair[1].casefold()))
+    category_options = ''.join(f'<option value="{html.escape(label)}"></option>' for label in sorted(set(groups.values())) if label != 'Uncategorized')
+    category_fields = ''.join(
+        f'<label>{html.escape(item["name"])}<input data-category-project="{html.escape(item["slug"])}" list="categoryOptions" maxlength="60" value="{html.escape(item.get("category", CARD_GROUPS.get(item["slug"], {}).get("label", "")))}" placeholder="Uncategorized"></label>'
+        for item in projects)
     initial_payload = json.dumps(
         {"apps": [_default_status(app) for app in _catalog()] + [_static_link_status(link) for link in _static_links()]}
     ).replace("</", "<\\/")
@@ -2683,10 +2698,9 @@ def _index_html() -> str:
         <div class="control-row">
         <div class="segmented" role="tablist" aria-label="View mode">
           <button class="active" type="button" data-mode="all" role="tab" aria-selected="true">All</button>
-          <button type="button" data-mode="un" role="tab" aria-selected="false">UN</button>
-          <button type="button" data-mode="documentary" role="tab" aria-selected="false">Documentary</button>
-          <button type="button" data-mode="other" role="tab" aria-selected="false">Other</button>
+          {category_buttons}
         </div>
+        <button type="button" id="editCategoriesButton">Edit categories</button>
         <div class="control-tools">
           <label class="studio-search" for="studioSearch">
             <span>Search</span>
@@ -2838,6 +2852,7 @@ def _index_html() -> str:
     <form id="addProjectForm">
       <h2>Add a project</h2><p>Register an existing project. This does not install dependencies or execute commands.</p>
       <label>Name<input name="name" required maxlength="100"></label>
+      <label>Category (optional)<input name="category" list="categoryOptions" maxlength="60" placeholder="e.g. Work, Personal, Research"></label>
       <label>ID<input name="slug" required pattern="[a-z0-9][a-z0-9_-]*" maxlength="100" placeholder="my-web-app"></label>
       <label>URL<input name="url" type="url" required placeholder="http://127.0.0.1:5173/"></label>
       <label>Project folder (optional for hosted links)<input name="repo" placeholder="/path/to/project"></label>
@@ -2846,6 +2861,16 @@ def _index_html() -> str:
       <label><input name="trust" type="checkbox"> I approve running this command when I launch the project.</label>
       <p role="status" id="addProjectMessage"></p>
       <button type="button" id="cancelAddProject">Cancel</button><button type="submit">Add project</button>
+    </form>
+  </dialog>
+  <datalist id="categoryOptions">{category_options}</datalist>
+  <dialog id="categoriesDialog" class="project-onboarding">
+    <form id="categoriesForm">
+      <h2>Your categories</h2>
+      <p>Type a category beside each project, or choose an existing one. Matching names share a tab. Leave blank for Uncategorized. To rename or remove a category, change its projects here.</p>
+      {category_fields or '<p>Add your first project to start organizing categories.</p>'}
+      <p role="status" id="categoriesMessage"></p>
+      <button type="button" id="cancelCategories">Cancel</button><button type="submit">Save categories</button>
     </form>
   </dialog>
   <script type="application/json" id="studioPreferences">{json.dumps(preferences(state_root())).replace('<', chr(92)+'u003c')}</script>
@@ -3054,6 +3079,20 @@ class Handler(BaseHTTPRequestHandler):
                 _json_response(self, {'ok':True})
             except (ValueError, TypeError) as error:
                 _json_response(self, {'error':str(error)},status=400)
+            return
+        if path == "/api/projects/categories":
+            try:
+                from app.registry import assign_categories, save_catalog
+                size = int(self.headers.get('Content-Length', '0'))
+                if not 0 < size <= 65536:
+                    raise ValueError('Expected category assignments smaller than 64 KB')
+                assignments = json.loads(self.rfile.read(size))
+                with _ITEM_STATE_LOCK:
+                    save_catalog(assign_categories(catalog(), assignments))
+                _reload_catalog()
+                _json_response(self, {'ok': True})
+            except (ValueError, TypeError) as error:
+                _json_response(self, {'error': str(error)}, status=400)
             return
         if path == "/api/projects/register":
             try:

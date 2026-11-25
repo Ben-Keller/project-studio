@@ -14,6 +14,8 @@ Use the installed `studio` command. If absent, check
    endpoint and required ports. Do not start unknown commands during discovery.
 3. Prepare a JSON project manifest with `slug`, `name`, `url`, optional `health_url`
    and `note`, plus `processes` containing `name`, `repo`, `command`, `ports`.
+   Ask for an optional `category` label (at most 60 characters), such as Work or
+   Personal. Reuse the user's labels from `projects list`; do not impose categories.
    Keep commands explicit. Do not embed tokens, passwords or secret values.
 4. Run `studio projects validate /path/to/manifest.json`.
 5. Show the launch commands to the user and obtain approval before registration.

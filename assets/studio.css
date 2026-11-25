@@ -197,6 +197,8 @@
       border-radius: 999px;
       background: rgba(4, 15, 25, 0.58);
     }
+    .segmented[aria-label="View mode"] { flex-wrap: wrap; max-width: 100%; border-radius: 20px; }
+    .segmented[aria-label="View mode"] button { overflow-wrap: anywhere; min-width: 0; }
     .segmented button,
     .sort-button {
       border: 0;

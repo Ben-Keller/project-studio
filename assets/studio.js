@@ -2008,7 +2008,7 @@ const cardList = [...document.querySelectorAll('.tool-card')];
     event.preventDefault();
     const values = new FormData(form);
     const command = String(values.get('command') || '').trim();
-    const project = {name: values.get('name'), slug: values.get('slug'), url: values.get('url'), processes: []};
+    const project = {name: values.get('name'), slug: values.get('slug'), url: values.get('url'), category: String(values.get('category') || '').trim(), processes: []};
     if (command) project.processes.push({name:'app', repo:values.get('repo'), command, ports:values.get('port') ? [Number(values.get('port'))] : []});
     const message = document.getElementById('addProjectMessage');
     const button = form.querySelector('[type="submit"]');
@@ -2019,6 +2019,28 @@ const cardList = [...document.querySelectorAll('.tool-card')];
       if (!response.ok) throw Error(result.error || 'Registration failed');
       location.reload();
     } catch (error) { message.textContent = error.message; }
+    finally { button.disabled = false; }
+  });
+})();
+
+(() => {
+  const dialog = document.getElementById('categoriesDialog');
+  const form = document.getElementById('categoriesForm');
+  document.getElementById('editCategoriesButton')?.addEventListener('click', () => dialog.showModal());
+  document.getElementById('cancelCategories')?.addEventListener('click', () => dialog.close());
+  form?.addEventListener('submit', async event => {
+    event.preventDefault();
+    const button = form.querySelector('[type="submit"]');
+    button.disabled = true;
+    const assignments = Object.fromEntries([...form.querySelectorAll('[data-category-project]')]
+      .filter(input => input.value.trim() !== input.defaultValue.trim())
+      .map(input => [input.dataset.categoryProject, input.value.trim()]));
+    try {
+      const response = await fetch('/api/projects/categories', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(assignments)});
+      const result = await response.json();
+      if (!response.ok) throw Error(result.error || 'Unable to save categories');
+      location.reload();
+    } catch (error) { document.getElementById('categoriesMessage').textContent = error.message; }
     finally { button.disabled = false; }
   });
 })();

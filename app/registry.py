@@ -23,6 +23,8 @@ def validate(value):
             seen.add(slug)
             if not isinstance(item.get('name'), str) or not item['name'].strip():
                 raise ValueError(f'{slug}: name is required')
+            if 'category' in item and (not isinstance(item['category'], str) or len(item['category']) > 60):
+                raise ValueError(f'{slug}: category must be text of at most 60 characters')
             if kind != 'planned':
                 url = urlparse(item.get('url', ''))
                 if url.scheme not in ('http', 'https') or not url.hostname or url.username or url.password:
@@ -55,3 +57,15 @@ def save_catalog(value):
     finally:
         if os.path.exists(temporary):
             os.unlink(temporary)
+
+def assign_categories(current, assignments):
+    """Update only category fields; preserve launch definitions and legacy metadata."""
+    if not isinstance(assignments, dict):
+        raise ValueError('Expected project category assignments')
+    projects = {item['slug']: item for kind in ('apps', 'links', 'planned') for item in current[kind]}
+    for slug, label in assignments.items():
+        if slug not in projects or not isinstance(label, str) or len(label) > 60:
+            raise ValueError('Unknown project or invalid category (maximum 60 characters)')
+    for slug, label in assignments.items():
+        projects[slug]['category'] = label.strip()
+    return current

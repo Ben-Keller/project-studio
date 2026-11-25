@@ -20,6 +20,26 @@ class ReleaseContracts(unittest.TestCase):
     def test_empty_workspace_has_no_personal_projects(self):
         self.assertEqual(catalog()['apps'], [])
         self.assertEqual(inventory_root(), state_root()/'credentials/inventory')
+
+    def test_categories_are_optional_validated_and_persisted(self):
+        from app.registry import assign_categories
+        value = catalog(); value['apps'].append(self.project())
+        original = value['apps'][0]['processes']
+        save_catalog(assign_categories(value, {'demo': ' Research '}))
+        self.assertEqual(catalog()['apps'][0]['category'], 'Research')
+        self.assertEqual(catalog()['apps'][0]['processes'], original)
+        with self.assertRaises(ValueError): assign_categories(value, {'missing': 'Work'})
+        with self.assertRaises(ValueError): assign_categories(value, {'demo': 'x' * 61})
+        save_catalog(assign_categories(value, {'demo': ''}))
+        self.assertEqual(catalog()['apps'][0]['category'], '')
+
+    def test_category_tabs_follow_catalog_not_personal_defaults(self):
+        import local_tools_launcher as launcher
+        value = catalog(); item = self.project(); item['category'] = 'Research & Design'
+        value['apps'].append(item)
+        with patch.object(launcher, '_user_catalog', value), patch.object(launcher, 'CARD_GROUPS', {}):
+            self.assertEqual(launcher._card_group('demo')['label'], 'Research & Design')
+            self.assertEqual(launcher._card_group('unknown')['label'], 'Uncategorized')
     def test_catalog_round_trip_private_permissions(self):
         value=catalog();value['apps'].append(self.project());save_catalog(value)
         self.assertEqual(catalog(),value)
