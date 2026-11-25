@@ -160,7 +160,7 @@ def protect(handler):
         send(handler, '<!doctype html><html><head><title>Studio</title></head><body>Opening app…</body></html>', kind='text/html')
         return True
     if path == '/healthz' and not mutation:
-        send(handler, {'ok': True, 'application': 'project-studio'})
+        send(handler, {'ok': True, 'application': 'project-studio', 'pid': os.getpid()})
         return True
     if not mutation and path.startswith('/project-studio-assets/') and Path(path).suffix.lower() in ('.js', '.css', '.png', '.jpg', '.jpeg', '.webp', '.ico', '.svg', '.woff', '.woff2'):
         return False

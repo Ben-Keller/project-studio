@@ -1,3 +1,33 @@
+// Portable preferences live in the workspace; browser storage is an offline cache.
+window.studioPreferences = (() => {
+  const allowed = new Set(['projectStudioPinnedTools','projectStudioActivityGroups','projectStudioManualOrder',
+    'projectStudioCompletionScores','projectStudioRenamedTools','projectStudioSelectedVersions',
+    'projectStudioLastOpened','projectStudioPortfolioSettings','projectStudioMode']);
+  const values = JSON.parse(document.getElementById('studioPreferences')?.textContent || '{}');
+  let timer;
+  for (const key of allowed) {
+    if (!(key in values)) { try { const value=localStorage.getItem(key); if(value!==null)values[key]=value; } catch {} }
+  }
+  async function save() {
+    try {
+      const response=await fetch('/api/preferences',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(values),keepalive:true});
+      if(!response.ok)throw new Error('Workspace preferences could not be saved');
+      document.getElementById('preferenceSaveError')?.remove();
+    } catch {
+      if(!document.getElementById('preferenceSaveError')) {
+        const notice=document.createElement('p');notice.id='preferenceSaveError';notice.role='status';
+        notice.textContent='Preferences are not saved to the workspace. Keep this window open and reload when the service is available.';
+        document.body.prepend(notice);
+      }
+    }
+  }
+  function schedule() { clearTimeout(timer);timer=setTimeout(save,300); }
+  schedule();
+  return {getItem:key=>values[key]??null,setItem(key,value) {
+    if(!allowed.has(key))throw new Error('Unsupported preference');
+    values[key]=String(value);try {localStorage.setItem(key,String(value));} catch {} schedule();
+  }, removeItem(key) { delete values[key];try {localStorage.removeItem(key);} catch {} schedule(); }};
+})();
 const studioDataNode = document.getElementById('studioData');
 window.__INITIAL_APPS__ = studioDataNode
   ? JSON.parse(studioDataNode.textContent || '{\"apps\":[]}')
@@ -39,11 +69,8 @@ const cardList = [...document.querySelectorAll('.tool-card')];
         const detailRole = document.getElementById('detailRole');
         const detailChipCloud = document.getElementById('detailChipCloud');
         const detailLaunch = document.getElementById('detailLaunch');
-        const detailCapture = document.getElementById('detailCapture');
         const detailVersion = document.getElementById('detailVersion');
         const detailVersionWrap = document.getElementById('detailVersionWrap');
-        const detailLanguage = document.getElementById('detailLanguage');
-        const detailLanguageWrap = document.getElementById('detailLanguageWrap');
         const detailStar = document.getElementById('detailStar');
         const detailActivity = document.getElementById('detailActivity');
         const detailDocs = document.getElementById('detailDocs');
@@ -65,8 +92,6 @@ const cardList = [...document.querySelectorAll('.tool-card')];
         const orderStorageKey = 'projectStudioManualOrder';
         const completionStorageKey = 'projectStudioCompletionScores';
         const nameStorageKey = 'projectStudioRenamedTools';
-        const captureStorageKey = 'projectStudioCaptureEnabled';
-        const recordingLanguageStorageKey = 'projectStudioRecordingLanguages';
         const versionStorageKey = 'projectStudioSelectedVersions';
         const lastOpenedStorageKey = 'projectStudioLastOpened';
         const manualGroups = ['active:pinned', 'active:unpinned', 'inactive:pinned', 'inactive:unpinned'];
@@ -74,7 +99,7 @@ const cardList = [...document.querySelectorAll('.tool-card')];
         let detailMediaKey = '';
         function loadActivityGroups() {
           try {
-            const parsed = JSON.parse(localStorage.getItem(activityStorageKey) || '{}');
+            const parsed = JSON.parse(window.studioPreferences.getItem(activityStorageKey) || '{}');
             return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : {};
           } catch (error) {
             return {};
@@ -82,7 +107,7 @@ const cardList = [...document.querySelectorAll('.tool-card')];
         }
         function loadManualOrder() {
           try {
-            const parsed = JSON.parse(localStorage.getItem(orderStorageKey) || '{}');
+            const parsed = JSON.parse(window.studioPreferences.getItem(orderStorageKey) || '{}');
             return Object.fromEntries(manualGroups.map(group => {
               if (Array.isArray(parsed[group])) return [group, parsed[group]];
               if (group === 'active:pinned' && Array.isArray(parsed.pinned)) return [group, parsed.pinned];
@@ -95,7 +120,7 @@ const cardList = [...document.querySelectorAll('.tool-card')];
         }
         function loadCompletionScores() {
           try {
-            const parsed = JSON.parse(localStorage.getItem(completionStorageKey) || '{}');
+            const parsed = JSON.parse(window.studioPreferences.getItem(completionStorageKey) || '{}');
             return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : {};
           } catch (error) {
             return {};
@@ -103,43 +128,27 @@ const cardList = [...document.querySelectorAll('.tool-card')];
         }
         function loadRenames() {
           try {
-            const parsed = JSON.parse(localStorage.getItem(nameStorageKey) || '{}');
+            const parsed = JSON.parse(window.studioPreferences.getItem(nameStorageKey) || '{}');
             return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : {};
           } catch (error) {
             return {};
           }
         }
 
-        function loadCaptureEnabled() {
-          try {
-            const parsed = JSON.parse(localStorage.getItem(captureStorageKey) || '[]');
-            return new Set(Array.isArray(parsed) ? parsed : []);
-          } catch (error) {
-            return new Set();
-          }
-        }
 
         function loadLastOpened() {
           try {
-            const parsed = JSON.parse(localStorage.getItem(lastOpenedStorageKey) || '{}');
+            const parsed = JSON.parse(window.studioPreferences.getItem(lastOpenedStorageKey) || '{}');
             return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : {};
           } catch (error) {
             return {};
           }
         }
 
-        function loadRecordingLanguages() {
-          try {
-            const parsed = JSON.parse(localStorage.getItem(recordingLanguageStorageKey) || '{}');
-            return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : {};
-          } catch (error) {
-            return {};
-          }
-        }
 
         function loadSelectedVersions() {
           try {
-            const parsed = JSON.parse(localStorage.getItem(versionStorageKey) || '{}');
+            const parsed = JSON.parse(window.studioPreferences.getItem(versionStorageKey) || '{}');
             return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : {};
           } catch (error) {
             return {};
@@ -157,14 +166,12 @@ const cardList = [...document.querySelectorAll('.tool-card')];
           resourceSort: 'cpu',
           resourceSortDirection: -1,
           sortDirection: -1,
-          pins: new Set(JSON.parse(localStorage.getItem(pinStorageKey) || '[]')),
+          pins: new Set(JSON.parse(window.studioPreferences.getItem(pinStorageKey) || '[]')),
           activity: loadActivityGroups(),
           manualOrder: loadManualOrder(),
           completion: loadCompletionScores(),
           names: loadRenames(),
-          capture: loadCaptureEnabled(),
           lastOpened: loadLastOpened(),
-          recordingLanguages: loadRecordingLanguages(),
           versions: loadSelectedVersions(),
           deferRecentReorderUntil: 0,
           frozenRecentOrders: null,
@@ -191,39 +198,33 @@ const cardList = [...document.querySelectorAll('.tool-card')];
         let detailReturnFocus = null;
 
         function savePins() {
-          localStorage.setItem(pinStorageKey, JSON.stringify([...state.pins]));
+          window.studioPreferences.setItem(pinStorageKey, JSON.stringify([...state.pins]));
         }
 
         function saveActivityGroups() {
-          localStorage.setItem(activityStorageKey, JSON.stringify(state.activity));
+          window.studioPreferences.setItem(activityStorageKey, JSON.stringify(state.activity));
         }
 
         function saveManualOrder() {
-          localStorage.setItem(orderStorageKey, JSON.stringify(state.manualOrder));
+          window.studioPreferences.setItem(orderStorageKey, JSON.stringify(state.manualOrder));
         }
 
         function saveCompletionScores() {
-          localStorage.setItem(completionStorageKey, JSON.stringify(state.completion));
+          window.studioPreferences.setItem(completionStorageKey, JSON.stringify(state.completion));
         }
 
         function saveRenames() {
-          localStorage.setItem(nameStorageKey, JSON.stringify(state.names));
+          window.studioPreferences.setItem(nameStorageKey, JSON.stringify(state.names));
         }
 
-        function saveCaptureEnabled() {
-          localStorage.setItem(captureStorageKey, JSON.stringify([...state.capture]));
-        }
 
         function saveLastOpened() {
-          localStorage.setItem(lastOpenedStorageKey, JSON.stringify(state.lastOpened));
+          window.studioPreferences.setItem(lastOpenedStorageKey, JSON.stringify(state.lastOpened));
         }
 
-        function saveRecordingLanguages() {
-          localStorage.setItem(recordingLanguageStorageKey, JSON.stringify(state.recordingLanguages));
-        }
 
         function saveSelectedVersions() {
-          localStorage.setItem(versionStorageKey, JSON.stringify(state.versions));
+          window.studioPreferences.setItem(versionStorageKey, JSON.stringify(state.versions));
         }
 
         function versionOptionsForCard(card) {
@@ -245,29 +246,8 @@ const cardList = [...document.querySelectorAll('.tool-card')];
           return options.find(item => item.id === selected) || options[0];
         }
 
-        function recordingLanguagesForCard(card) {
-          try {
-            const parsed = JSON.parse(card.dataset.recordingLanguages || '[]');
-            return Array.isArray(parsed) && parsed.length ? parsed : [{ code: 'en', label: 'English' }];
-          } catch (error) {
-            return [{ code: 'en', label: 'English' }];
-          }
-        }
 
-        function recordingLanguageForCard(card) {
-          const languages = recordingLanguagesForCard(card);
-          const valid = new Set(languages.map(item => item.code));
-          const fallback = card.dataset.recordingDefaultLanguage || languages[0]?.code || 'en';
-          const saved = state.recordingLanguages[card.dataset.slug];
-          return valid.has(saved) ? saved : (valid.has(fallback) ? fallback : languages[0].code);
-        }
 
-        function captureQueryForCard(card) {
-          const params = new URLSearchParams();
-          params.set('capture', '1');
-          params.set('language', recordingLanguageForCard(card));
-          return params.toString();
-        }
 
         function launchUrlForCard(card) {
           const launchUrl = card.dataset.detailLaunchUrl || '';
@@ -276,10 +256,6 @@ const cardList = [...document.querySelectorAll('.tool-card')];
           const params = new URLSearchParams();
           const version = selectedVersionForCard(card);
           if (version) params.set('version', version.id);
-          if (state.capture.has(slug)) {
-            const captureParams = new URLSearchParams(captureQueryForCard(card));
-            captureParams.forEach((value, key) => params.set(key, value));
-          }
           const query = params.toString();
           const target = card.dataset.detailStatic === 'true'
             ? `/links/${encodeURIComponent(slug)}/open`
@@ -297,18 +273,13 @@ const cardList = [...document.querySelectorAll('.tool-card')];
           const url = launchUrlForCard(card);
           if (!card || !url || url === '#') return false;
           markCardOpened(card);
-          if (state.capture.has(card.dataset.slug) && navigator.userAgent.includes('ProjectStudioNative')) {
-            window.location.href = url;
-          } else {
-            window.studioAction(url, state.capture.has(card.dataset.slug) ? '_self' : launchWindowNameForCard(card));
-          }
+          window.studioAction(url, launchWindowNameForCard(card));
           return true;
         }
 
         function syncCardLaunchLink(card) {
           const controls = [...card.querySelectorAll('[data-launch-control]')];
           if (!controls.length) return;
-          const captureEnabled = state.capture.has(card.dataset.slug);
           const isStatic = card.dataset.detailStatic === 'true';
           const version = selectedVersionForCard(card);
           controls.forEach(link => {
@@ -319,7 +290,6 @@ const cardList = [...document.querySelectorAll('.tool-card')];
               : isStatic
                 ? (compact ? 'Open' : 'Open website')
                 : (compact ? 'Launch' : 'Launch app');
-            link.classList.toggle('capture-routed', captureEnabled);
             link.removeAttribute('target');
             link.removeAttribute('rel');
           });
@@ -1241,7 +1211,6 @@ const cardList = [...document.querySelectorAll('.tool-card')];
           const pdfUrl = card.dataset.detailPdfUrl || '';
           const disabled = card.dataset.detailDisabled === 'true';
           const isStatic = card.dataset.detailStatic === 'true';
-          const captureEnabled = state.capture.has(slug);
           const versionOptions = versionOptionsForCard(card);
           const selectedVersion = selectedVersionForCard(card);
 
@@ -1270,15 +1239,6 @@ const cardList = [...document.querySelectorAll('.tool-card')];
           detailUpdated.textContent = cardUpdatedLabel(card);
           detailRole.textContent = card.dataset.detailRole || '-';
           detailRename.value = name;
-          if (detailLanguage) {
-            const recordingLanguages = recordingLanguagesForCard(card);
-            const selectedLanguage = recordingLanguageForCard(card);
-            detailLanguage.innerHTML = recordingLanguages.map(item => `
-              <option value="${escapeInlineHtml(item.code)}"${item.code === selectedLanguage ? ' selected' : ''}>${escapeInlineHtml(item.label)}</option>
-            `).join('');
-            detailLanguage.disabled = recordingLanguages.length <= 1;
-          }
-          if (detailLanguageWrap) detailLanguageWrap.hidden = true;
           const previewBackground = cardPreviewBackground(card);
           const photos = detailPhotosForCard(card);
           const nextMediaKey = JSON.stringify({
@@ -1311,12 +1271,6 @@ const cardList = [...document.querySelectorAll('.tool-card')];
               ? `↗ View ${selectedVersion.id.toUpperCase()}`
               : '↗ Launch App';
           detailLaunch.setAttribute('aria-disabled', String(disabled || !launchUrl));
-          setDetailControlVisible(detailCapture, !disabled && Boolean(launchUrl));
-          detailCapture.textContent = '';
-          detailCapture.setAttribute('aria-pressed', String(captureEnabled));
-          detailCapture.setAttribute('aria-label', captureEnabled ? 'Disable recording tools' : 'Enable recording tools');
-          detailCapture.title = captureEnabled ? 'Recording tools enabled' : 'Enable recording tools';
-          detailCapture.classList.toggle('enabled', captureEnabled);
           detailLaunch.removeAttribute('target');
           detailLaunch.removeAttribute('rel');
           detailStar.textContent = state.pins.has(slug) ? '★ Starred' : '☆ Star';
@@ -1832,25 +1786,6 @@ const cardList = [...document.querySelectorAll('.tool-card')];
         detailActivity.addEventListener('click', () => {
           if (!selectedDetailCard) return;
           toggleActivityCard(selectedDetailCard);
-          refreshDetailModal(selectedDetailCard);
-        });
-        detailCapture.addEventListener('click', () => {
-          if (!selectedDetailCard) return;
-          const slug = selectedDetailCard.dataset.slug;
-          if (state.capture.has(slug)) {
-            state.capture.delete(slug);
-          } else {
-            state.capture.add(slug);
-          }
-          saveCaptureEnabled();
-          syncCardLaunchLink(selectedDetailCard);
-          refreshDetailModal(selectedDetailCard);
-        });
-        detailLanguage?.addEventListener('change', () => {
-          if (!selectedDetailCard) return;
-          state.recordingLanguages[selectedDetailCard.dataset.slug] = detailLanguage.value || 'en';
-          saveRecordingLanguages();
-          syncCardLaunchLink(selectedDetailCard);
           refreshDetailModal(selectedDetailCard);
         });
         detailDocs.addEventListener('click', () => loadDetailReadme());

@@ -1,38 +1,31 @@
 # Release status
 
-Target: macOS 13+, Apple Silicon only. License: MIT. Public collaboration preview.
+Target: macOS 13+, Apple Silicon. MIT license. Public collaboration preview.
+Recording Studio is a separate project and is not part of this distribution.
 
 ## Implemented
 
-- Personal catalog extracted from executable source into ignored local JSON.
-- Empty portable catalog and explicit trust for imported launch commands.
-- Studio Add Project dialog and CLI registration/validation.
-- Installed application data separated from source/immutable bundle resources.
-- Non-destructive copy migration into an empty workspace.
-- Shared Codex/Claude skill, explicit installer, no overwrite of existing skills.
-- Native standalone Swift/WebKit target and bundled Python build.
-- Stable packaged web origin separate from source runs, private local sessions.
-- Public source allowlist: no personal inventory, photo library, Git history or outputs.
-- Manual Releases menu, static product site and CI preview workflow.
+- Empty portable registry; explicit approval of project launch commands.
+- Studio, Portfolio and optional Keys; shared Codex/Claude integration skill.
+- Native Swift/WebKit window with bundled Python and pinned Sparkle framework.
+- Private local sessions, separate packaged port, single-window instance lock,
+  service PID verification, one crash-recovery retry and explicit failure reporting.
+- Workspace-backed layout/portfolio preferences and browser-cache migration.
+- Staged, checksum-verified migration and backup/restore into new destinations.
+- Portable media overlays and bundled static-site helpers.
+- Live catalog reload and authenticated CLI launch/stop/status.
+- Signed update feed tooling, public EdDSA key, private key held in publisher Keychain.
+  Update checks are user initiated; installation is not automatic.
+- Third-party notices bundled with the app, publication allowlist and CI checks.
 
-## Required before a production release
+## Acceptance still requiring external validation
 
-- Configure Developer ID signing and Apple notarization; validate on a clean Mac.
-- Integrate signed Sparkle updates, release feed and active-work deferral. Current
-  Check for Updates opens GitHub Releases; it is not an automatic updater.
-- Bundle and license-audit recorder Node/browser/FFmpeg dependencies, and wire the
-  packaged service to those binaries. Recorder source is included, not fully packaged.
-- Migrate user media and browser-local layout/portfolio preferences explicitly.
-  Current importer handles catalog, recording/export files and credential metadata,
-  but does not migrate browser profiles, secret values or consent/provider sessions.
-- Normalize all remaining source/packaged helper paths and provider setup flows.
-- Test multi-instance startup, occupied packaged port 18765, service crash recovery,
-  updates/rollback, and the complete Keys setup flow on a clean user account.
-- Complete provider-independent credential onboarding. Infisical is the current
-  provider; installing the app does not provision a vault or access identity.
-- Add portable live catalog reload and full CLI launch/stop/backup commands.
-- Review complete third-party license notices and runtime redistribution.
+- Apple Developer ID signing and notarization, followed by a clean-Mac install.
+- Real prior-version upgrade/rollback and native Dock/window/crash behavior on a clean
+  user account. Compiled builds and service/browser tests do not prove these UI cases.
+- Reconnect and verify the user's actual credential provider; no production secrets
+  or provider accounts are provisioned by installation. Infisical and explicit local
+  profiles are the supported workflows, not arbitrary interchangeable providers.
 
-The existing source-linked installation is deliberately left intact. Do not publish
-personal history or delete its local data to prepare a release. The public source
-export has its own fresh Git history.
+See [operations](OPERATIONS.md) for installation, migration, backup and publication.
+The original development workspace and private history are never published.

@@ -26,12 +26,13 @@ see what is running, and turn working software into a portfolio.
 This repository is the **public collaboration preview**, not a completed production
 release. The native Apple Silicon preview bundles Python and the main UI. It is
 ad-hoc signed, **not Apple notarized**; macOS may block downloaded builds. Do not disable
-Gatekeeper globally. Signed installation and verified automatic updates remain release
-gates. The current update menu opens the Releases page for manual downloads.
+Gatekeeper globally. Apple-signed installation remains a release gate. Update checks use Sparkle and
+EdDSA-signed releases; installation requires confirmation. See the operations guide
+for migration, backup and update verification.
 
-Recording Studio source is included. Its Node/Chrome/FFmpeg runtime is not yet bundled
-into the desktop preview. See [the release checklist](docs/release/STATUS.md) for
-remaining integration and migration work; no dependency-free recorder claim is made.
+Project Studio includes the launcher, Portfolio and Keys views. Screen recording and
+video export are not part of this app. See [the release checklist](docs/release/STATUS.md)
+for remaining integration and migration work.
 
 ## Run from source
 
@@ -95,14 +96,13 @@ still require separate review; see [release status](docs/release/STATUS.md).
 ## Contributing
 
 Keep the local-first architecture: Python service, native WebKit shell, vanilla Studio/
-Portfolio/Keys UI, isolated React recording runtime. Prefer small, tested changes over
+Portfolio/Keys UI. Prefer small, tested changes over
 framework rewrites. Include reproducible steps and sanitized logs in bug reports.
 
 ```sh
 python3 -m unittest discover -s tests -p 'test_*.py'
 node --check assets/studio.js
 node --check assets/portfolio.js
-cd recording-studio && npm ci && npm run typecheck && npm test && npm run build
 ```
 
 Never attach keys, private inventory files or browser profiles to an issue.
@@ -111,3 +111,7 @@ Never attach keys, private inventory files or browser profiles to an issue.
 
 Original Project Studio code is licensed under [MIT](LICENSE). Dependencies retain their
 own licenses. Personal project photos, logos and inventories are not distributed here.
+
+## Workspace migration and maintenance
+
+See [installation, migration, backups and publishing](docs/release/OPERATIONS.md).

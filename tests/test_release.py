@@ -39,3 +39,28 @@ class ReleaseContracts(unittest.TestCase):
         path=state_root()/'private/catalog.json';path.parent.mkdir();path.write_text('{invalid')
         with self.assertRaises(json.JSONDecodeError):catalog()
         self.assertEqual(path.read_text(),'{invalid')
+
+class LauncherWithoutRecorder(unittest.TestCase):
+    def test_launch_page_only_waits_for_target_app(self):
+        import local_tools_launcher as launcher
+        from install_related_desktop_apps import AppLauncher
+        app = AppLauncher(name='Example', slug='example', url='http://127.0.0.1:5199/', note='', processes=())
+        page = launcher._app_loading_html(app, {'ready': True})
+        self.assertIn('location.replace(app.url)', page)
+        self.assertNotIn('recording-studio', page)
+        self.assertNotIn('3015', page)
+        self.assertNotIn('capture', page)
+
+    def test_stop_all_only_stops_registered_apps(self):
+        import local_tools_launcher as launcher
+        apps = [object(), object()]
+        with patch.object(launcher, '_catalog', return_value=apps), patch.object(launcher, '_stop_app', return_value={}) as stop:
+            self.assertEqual(len(launcher._stop_all_local_apps()['stopped']), 2)
+            self.assertEqual([call.args[0] for call in stop.call_args_list], apps)
+
+    def test_release_does_not_include_recorder(self):
+        root = Path(__file__).resolve().parents[1]
+        for relative in ('release/export_source.py', 'release/build_macos.py', '.github/workflows/check.yml', 'assets/studio.js', 'assets/studio.css'):
+            text = (root / relative).read_text()
+            self.assertNotIn('recording-studio', text, relative)
+            self.assertNotIn('detailCapture', text, relative)

@@ -16,12 +16,12 @@ def main():
     for name in FILES: shutil.copy2(ROOT/name,destination/name)
     for name in DIRECTORIES:
         shutil.copytree(ROOT/name,destination/name,ignore=shutil.ignore_patterns('__pycache__','*.pyc'))
-    for folder,patterns in [('assets',['*.css','*.js','*.html']),('release',['*.py','requirements.txt']),('tests',['test_release.py', 'release_browser.cjs']),('docs/release',['*.md'])]:
+    for folder,patterns in [('assets',['*.css','*.js','*.html']),('release',['*.py','requirements.txt','update-public-key.txt']),('tests',['test_release.py', 'test_workspace.py', 'release_browser.cjs', 'native_smoke.py']),('docs/release',['*.md'])]:
         target=destination/folder;target.mkdir(parents=True,exist_ok=True)
         for pattern in patterns:
             for file in (ROOT/folder).glob(pattern):shutil.copy2(file,target/file.name)
+    shutil.copytree(ROOT/'release/licenses', destination/'release/licenses')
     shutil.copy2(ROOT/'docs/release/PUBLIC_README.md',destination/'README.md')
-    shutil.copytree(ROOT/'recording-studio',destination/'recording-studio',ignore=shutil.ignore_patterns('node_modules','outputs','dist','.DS_Store','*.log'))
     prohibited=[]
     for file in destination.rglob('*'):
         if file.is_file() and file.suffix in ('.py','.js','.ts','.tsx','.json','.md','.html','.swift','.yml'):

@@ -18,9 +18,9 @@ Use the installed `studio` command. If absent, check
 4. Run `studio projects validate /path/to/manifest.json`.
 5. Show the launch commands to the user and obtain approval before registration.
    Run `studio projects add /path/to/manifest.json --trust-commands` only after approval.
-6. Restart Project Studio to load the registered project, then ask the user to
-   launch from its card. Check the target app identity, readiness and stop behavior.
-7. Diagnose failures using the UI's logs and `studio doctor`. Never stop unrelated
+6. Reload Project Studio to show the registered project. Use `studio launch SLUG`
+   only when the user approves starting it, or let them launch from its card. Check the target app identity, readiness and stop behavior.
+7. Diagnose failures using the UI's logs, `studio status SLUG` and `studio doctor`. Never stop unrelated
    port owners or edit Project Studio source to add a project.
 
 Credential providers are optional. `studio dev` requires a separately configured
@@ -28,5 +28,9 @@ project reference/provider or an explicit local profile. Never use a personal or
 production credential as a fallback. Do not scan unrelated folders or publish
 project screenshots without authorization.
 
-This preview does not yet expose generic launch/stop commands through this CLI.
-Do not invent commands or imply that all dependency setup is automatic.
+Use `studio stop SLUG` only for the requested registered app. The running service
+owns launch/stop operations; do not start duplicate workers. `studio backup PATH`
+creates a verified workspace copy. `studio restore PATH` previews restoration;
+`--apply` requires a new destination via `PROJECT_STUDIO_DATA_DIR`. Backups contain
+private metadata/media, not Keychain secrets or active authentication sessions.
+Do not imply that project dependencies or credential providers install automatically.

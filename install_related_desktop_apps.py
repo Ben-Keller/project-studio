@@ -310,11 +310,12 @@ def write_app_icon(resources_dir: Path, theme: IconTheme, icon_name: str = "AppI
 
 def default_apps() -> tuple[AppLauncher, ...]:
     from app.registry import catalog
+    from app.paths import resolved_command
     return tuple(AppLauncher(
         name=item['name'], slug=item['slug'], url=item['url'],
         health_url=item.get('health_url', ''), note=item.get('note', ''),
         icon=IconTheme(**item['icon']) if item.get('icon') else DEFAULT_ICON,
-        processes=tuple(LaunchProcess(**{**p, 'repo': Path(p['repo']).expanduser(),
+        processes=tuple(LaunchProcess(**{**p, 'repo': Path(p['repo']).expanduser(), 'command': resolved_command(p['command']),
             'ports': tuple(p.get('ports', ()))}) for p in item.get('processes', ()))
     ) for item in catalog()['apps'])
 

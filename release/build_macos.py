@@ -9,7 +9,7 @@ import subprocess
 import sys
 
 ROOT = Path(__file__).resolve().parents[1]
-VERSION = '0.1.0'
+VERSION = '0.2.0'
 sys.path.insert(0, str(ROOT))
 
 def main():
@@ -18,6 +18,8 @@ def main():
     args = parser.parse_args()
     if sys.platform != 'darwin' or platform.machine() != 'arm64':
         parser.error('Build on Apple Silicon macOS; Intel builds are not supported')
+    from dependencies import sparkle, notices
+    framework = sparkle()
     build = ROOT / 'release/build'
     build.mkdir(parents=True, exist_ok=True)
     app = build / 'Project Studio.app'
@@ -40,15 +42,20 @@ def main():
     command += [str(ROOT/'release/entry.py')]
     subprocess.run(command,check=True,cwd=ROOT)
     shutil.copytree(build/'frozen/studio',resources/'runtime')
-    subprocess.run(['swiftc','-O','-target','arm64-apple-macosx13.0','-framework','Cocoa','-framework','WebKit',str(ROOT/'desktop/macos/main.swift'),'-o',str(macos/'ProjectStudio')],check=True)
-    cli = macos/'studio'
-    cli.write_text('#!/bin/sh\nexec "$(dirname "$0")/../Resources/runtime/studio" "$@"\n');cli.chmod(0o755)
+    frameworks = app/'Contents/Frameworks'; frameworks.mkdir()
+    shutil.copytree(framework/'Sparkle.framework',frameworks/'Sparkle.framework',symlinks=True)
+    notices(resources/'Licenses',framework)
+    subprocess.run(['swiftc','-F',str(framework),'-framework','Sparkle','-Xlinker','-rpath','-Xlinker','@executable_path/../Frameworks','-O','-target','arm64-apple-macosx13.0','-framework','Cocoa','-framework','WebKit',str(ROOT/'desktop/macos/main.swift'),'-o',str(macos/'ProjectStudio')],check=True)
+    subprocess.run(['clang','-O2','-target','arm64-apple-macosx13.0',str(ROOT/'desktop/macos/cli.c'),'-o',str(macos/'studio')],check=True)
     from install_related_desktop_apps import write_app_icon, IconTheme
     write_app_icon(resources, IconTheme('PS','#2f8ff0','#101c35','#74f4c7','network'))
     with (app/'Contents/Info.plist').open('wb') as file:
         plistlib.dump({'CFBundleName':'Project Studio','CFBundleDisplayName':'Project Studio',
             'CFBundleIdentifier':'io.github.ben-keller.project-studio','CFBundleExecutable':'ProjectStudio',
-            'CFBundlePackageType':'APPL','CFBundleIconFile':'AppIcon','CFBundleVersion':'1',
+            'CFBundlePackageType':'APPL','CFBundleIconFile':'AppIcon','CFBundleVersion':'2',
+            'SUFeedURL':'https://ben-keller.github.io/project-studio/appcast.xml',
+            'SUPublicEDKey':(ROOT/'release/update-public-key.txt').read_text().strip(),
+            'SUEnableAutomaticChecks':False, 'SUAutomaticallyUpdate':False,
             'CFBundleShortVersionString':VERSION,'LSMinimumSystemVersion':'13.0',
             'NSDocumentsFolderUsageDescription':'Open project folders you register with Project Studio.'},file)
     subprocess.run(['codesign','--force','--deep','--sign','-',str(app)],check=True)
@@ -60,6 +67,6 @@ def main():
         shutil.copytree(app,stage/app.name,symlinks=True)
         (stage/'Applications').symlink_to('/Applications')
         subprocess.run(['hdiutil','create','-volname','Project Studio Preview','-srcfolder',str(stage),'-ov','-format','UDZO',str(dmg)],check=True)
-    print(f'Built {app}. Local preview only: ad-hoc signed, not notarized. Recording dependencies are not bundled yet.')
+    print(f'Built {app}. Local preview only: ad-hoc signed, not notarized.')
 
 if __name__ == '__main__': main()

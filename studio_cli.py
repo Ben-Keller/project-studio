@@ -12,6 +12,7 @@ import sys
 import threading
 import webbrowser
 import time
+from app.paths import cli_command, service_command, default_port
 import studio_auth
 import studio_dev_access
 from urllib.parse import urlencode
@@ -166,19 +167,21 @@ def run_profile(profile, command=None):
 
 
 def open_entry(project, name='', consumer='default'):
-    url = 'http://127.0.0.1:8765/credentials?' + urlencode({'project': project, 'name': name, 'consumer': consumer}) + '#add'
+    url = f'http://127.0.0.1:{default_port()}/credentials?' + urlencode({'project': project, 'name': name, 'consumer': consumer}) + '#add'
     open_studio(url)
     print('Enter the value in Studio’s Add key form. Do not paste it in the agent chat.')
 
 
-def open_studio(url='http://127.0.0.1:8765/'):
-    subprocess.Popen([sys.executable, str(vault.ROOT / 'local_tools_launcher.py'), '--no-open'],
+def open_studio(url=None):
+    port=default_port()
+    url=url or f'http://127.0.0.1:{port}/'
+    subprocess.Popen(service_command()+['--port',str(port),'--no-open'],
                      stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, start_new_session=True)
     import urllib.request
     time.sleep(.5)
     for _ in range(100):
         try:
-            with urllib.request.urlopen('http://127.0.0.1:8765/healthz', timeout=.3) as response:
+            with urllib.request.urlopen(f'http://127.0.0.1:{port}/healthz', timeout=.3) as response:
                 if response.status == 200:
                     target = studio_auth.owner_url(url)
                     webbrowser.open(target)
@@ -192,6 +195,12 @@ def open_studio(url='http://127.0.0.1:8765/'):
 def main(argv=None):
     from app.cli import COMMANDS, main as portable_main
     arguments = list(sys.argv[1:] if argv is None else argv)
+    if len(arguments)>1 and arguments[0]=='helper':
+        import spa_static_server, static_site_server
+        helper={'spa':spa_static_server,'static':static_site_server}.get(arguments[1])
+        if helper is None: raise ValueError('Unknown bundled helper')
+        sys.argv=[arguments[1],*arguments[2:]]
+        return helper.main()
     if arguments and arguments[0] in COMMANDS:
         return portable_main(arguments)
     parser = argparse.ArgumentParser(description='Project Studio shared credential workflow for Codex and Claude')
@@ -342,7 +351,7 @@ def keys_command(args):
     REMINDER_PLIST.parent.mkdir(parents=True, exist_ok=True)
     REMINDER_PLIST.write_bytes(plistlib.dumps({
         'Label': REMINDER_LABEL,
-        'ProgramArguments': [sys.executable, str(Path(__file__).resolve()), 'keys', 'due', '--days', '14', '--notify'],
+        'ProgramArguments': cli_command()+['keys', 'due', '--days', '14', '--notify'],
         'WorkingDirectory': str(vault.ROOT),
         'StartCalendarInterval': {'Hour': 9, 'Minute': 41},
         'StandardOutPath': str(log), 'StandardErrorPath': str(log)}))

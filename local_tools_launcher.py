@@ -31,16 +31,14 @@ if str(SCRIPT_DIR) not in sys.path:
 from install_related_desktop_apps import AppLauncher, LaunchProcess, default_apps  # noqa: E402
 import studio_credentials  # noqa: E402
 import studio_auth
-from app.paths import state_root
+from app.paths import state_root, cli_command
 from app.registry import catalog
+from app.workspace import preferences, save_preferences, MEDIA
 _user_catalog = catalog()
 
 STATE_ROOT = state_root() / "launchers"
 UI_STATE_DIR = state_root() / "launcher-ui"
 PROJECT_STUDIO_ASSETS = SCRIPT_DIR / "assets"
-RECORDING_STUDIO_EXPORT_REPO = Path(
-    os.environ.get("PROJECT_STUDIO_RECORDING_EXPORT_REPO", str(PROJECT_STUDIO_ROOT / "recording-studio"))
-)
 STATUS_CACHE_TTL_SECONDS = 10.0
 ITEM_EVENT_LIMIT = 40
 PORT_SEARCH_LIMIT = 60
@@ -106,7 +104,6 @@ def _card_tag_labels(slug: str) -> list[str]:
     return [labels[tag] for tag in _card_tags(slug) if tag in labels]
 
 
-
 DEFAULT_RESOURCE_POLICY: dict[str, Any] = {"mode": "monitor", "label": "Local app"}
 
 RESOURCE_POLICIES = _user_catalog["metadata"].get("RESOURCE_POLICIES", {})
@@ -116,30 +113,6 @@ def _resource_policy(slug: str) -> dict[str, Any]:
     policy = dict(DEFAULT_RESOURCE_POLICY)
     policy.update(RESOURCE_POLICIES.get(slug, {}))
     return policy
-
-
-@dataclass(frozen=True)
-class RecordingLanguage:
-    code: str
-    label: str
-
-
-@dataclass(frozen=True)
-class RecordingStudioProfile:
-    languages: tuple[RecordingLanguage, ...]
-    default_language: str
-    video_export_enabled: bool = True
-
-
-@dataclass(frozen=True)
-class VideoExportService:
-    name: str
-    slug: str
-    health_url: str
-    command: str
-    repo: Path
-    note: str
-    ports: tuple[int, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -173,97 +146,6 @@ def _placeholder_tools() -> tuple[PlaceholderTool, ...]:
 
 def _static_links() -> tuple[StaticLink, ...]:
     return tuple(StaticLink(**item) for item in _user_catalog['links'])
-
-
-ENGLISH = RecordingLanguage("en", "English")
-RECORDING_STUDIO_PROFILES = {
-    key: RecordingStudioProfile(languages=tuple(RecordingLanguage(**language) for language in value['languages']),
-        default_language=value['default_language'], video_export_enabled=value.get('video_export_enabled', True))
-    for key, value in _user_catalog.get('recording_profiles', {}).items()
-}
-
-
-def _recording_profile(slug: str) -> RecordingStudioProfile:
-    return RECORDING_STUDIO_PROFILES.get(slug, RecordingStudioProfile(languages=(ENGLISH,), default_language="en"))
-
-
-def _normalized_recording_language(slug: str, language: str | None) -> str:
-    profile = _recording_profile(slug)
-    valid = {item.code for item in profile.languages}
-    requested = (language or profile.default_language).strip().lower()
-    return requested if requested in valid else profile.default_language
-
-
-def _recording_language_options(slug: str) -> list[dict[str, str]]:
-    profile = _recording_profile(slug)
-    return [{"code": item.code, "label": item.label} for item in profile.languages]
-
-
-def _recording_profile_payload(slug: str) -> dict[str, Any]:
-    profile = _recording_profile(slug)
-    services = _video_export_services_for_app(slug)
-    return {
-        "languages": _recording_language_options(slug),
-        "default_language": profile.default_language,
-        "video_export_enabled": profile.video_export_enabled,
-        "video_export_services": [service.slug for service in services],
-    }
-
-
-def _video_export_services() -> tuple[VideoExportService, ...]:
-    return (
-        VideoExportService(
-            name="Recording Studio Video Export",
-            slug="recording-studio-video-export",
-            health_url="http://127.0.0.1:3015/api/walkthrough-export/health",
-            command="npm start",
-            repo=RECORDING_STUDIO_EXPORT_REPO,
-            note=(
-                "Shared Project Studio recording/export helper. The launcher treats this as a "
-                "Recording Studio extension for any app."
-            ),
-            ports=(3015,),
-        ),
-    )
-
-
-def _find_service(slug: str) -> VideoExportService | None:
-    return next((service for service in _video_export_services() if service.slug == slug), None)
-
-
-def _video_export_services_for_app(slug: str) -> tuple[VideoExportService, ...]:
-    # The shared runtime/library is required even when video export is disabled.
-    return _video_export_services()
-
-
-def _recording_service_payload(service: VideoExportService) -> dict[str, Any]:
-    return {
-        "name": service.name,
-        "slug": service.slug,
-        "health_url": service.health_url,
-        "command": service.command,
-        "repo": str(service.repo),
-        "note": service.note,
-        "ports": list(service.ports),
-    }
-
-
-def _service_app(service: VideoExportService) -> AppLauncher:
-    return AppLauncher(
-        name=service.name,
-        slug=service.slug,
-        url=service.health_url,
-        health_url=service.health_url,
-        note=service.note,
-        processes=(
-            LaunchProcess(
-                name="service",
-                repo=service.repo,
-                command=service.command,
-                ports=service.ports,
-            ),
-        ),
-    )
 
 
 def _status_url(url: str, timeout: float = 0.14) -> bool:
@@ -333,7 +215,6 @@ def _url_with_port(url: str, port: int) -> str:
     return parsed._replace(netloc=netloc).geturl()
 
 
-
 def _url_origin(url: str) -> str:
     parsed = urlparse(url)
     if parsed.scheme not in {"http", "https"} or not parsed.hostname:
@@ -343,7 +224,6 @@ def _url_origin(url: str) -> str:
     host = parsed.hostname
     netloc = host if not port or port == default_port else f"{host}:{port}"
     return parsed._replace(netloc=netloc, path="/", params="", query="", fragment="").geturl()
-
 
 
 def _mac_process_running(process_name: str) -> bool:
@@ -806,7 +686,6 @@ def _process_port_pids(process: LaunchProcess) -> list[int]:
     for port in getattr(process, "ports", ()):
         pids.extend(_pids_for_port(port))
     return sorted(set(pid for pid in pids if _pid_alive(pid)))
-
 
 
 def _parse_etime_seconds(value: str) -> int:
@@ -1290,7 +1169,7 @@ def _start_process(app: AppLauncher, process: LaunchProcess) -> bool:
                 log.write(str(exc) + '\n')
             return False
     else:
-        launch_args = [sys.executable, str(SCRIPT_DIR / "studio_cli.py"), "_run", "--", *launch_args]
+        launch_args = cli_command() + ["_run", "--", *launch_args]
     with log_path.open("a", encoding="utf-8") as log:
         log.write(f"\n[{time.strftime('%Y-%m-%d %H:%M:%S')}] Starting {process.name}: {process.command}\n")
         log.flush()
@@ -1534,17 +1413,10 @@ def _stop_app(app: AppLauncher) -> dict[str, Any]:
     return status
 
 
-def _stop_app_with_services(app: AppLauncher) -> dict[str, Any]:
-    # Recording Studio is shared: stopping one app must not interrupt another's export.
-    return _stop_app(app)
-
-
 def _stop_all_local_apps() -> dict[str, Any]:
     results = []
     for app in _catalog():
         results.append(_stop_app(app))
-    for service in _video_export_services():
-        results.append(_stop_app(_service_app(service)))
     with _STATUS_CACHE_LOCK:
         _STATUS_CACHE.clear()
     return {"stopped": results}
@@ -1785,13 +1657,6 @@ def _project_studio_validation(items: list[dict[str, Any]]) -> dict[str, list[st
             for port in process.get("ports", []):
                 if str(port) not in command:
                     warnings.append(f"{slug}/{process.get('name', 'process')}: port {port} is declared but not explicit in launch command")
-    service_slugs: set[str] = set()
-    for service in _video_export_services():
-        if service.slug in service_slugs:
-            errors.append(f"{service.slug}: duplicate recording service slug")
-        service_slugs.add(service.slug)
-        if not service.repo.exists():
-            warnings.append(f"{service.slug}: recording export repo not found: {service.repo}")
     template_ids: set[str] = set()
     for template in PORTFOLIO_TEMPLATES:
         template_id = str(template.get("id", ""))
@@ -1828,7 +1693,7 @@ def _static_ui_asset_validation() -> dict[str, list[str]]:
         if not text.strip():
             errors.append(f"Project Studio UI asset empty: {relative_path}")
             continue
-        if "{{" in text or "}}" in text:
+        if relative_path.endswith(".css") and ("{{" in text or "}}" in text):
             errors.append(f"Project Studio UI asset still contains Python f-string braces: {relative_path}")
         if kind == "css":
             if text.count("{") != text.count("}"):
@@ -1869,7 +1734,6 @@ def _project_studio_manifest() -> dict[str, Any]:
             "static_links": sum(1 for item in items if item["kind"] == "static_link"),
             "planned": sum(1 for item in items if item["kind"] == "planned"),
             "portfolio_templates": len(PORTFOLIO_TEMPLATES),
-            "recording_services": len(_video_export_services()),
             "errors": len(validation["errors"]),
             "warnings": len(validation["warnings"]),
         },
@@ -1877,10 +1741,6 @@ def _project_studio_manifest() -> dict[str, Any]:
         "portfolio": {
             "templates": list(PORTFOLIO_TEMPLATES),
             "defaults": PORTFOLIO_DEFAULT_SETTINGS,
-        },
-        "recording": {
-            "manifest_url": "/api/recording-studio",
-            "export_services": [_recording_service_payload(service) for service in _video_export_services()],
         },
         "resource_policies": {
             "default": DEFAULT_RESOURCE_POLICY,
@@ -1915,58 +1775,6 @@ def _project_studio_setup_payload() -> dict[str, Any]:
     }
 
 
-def _recording_studio_catalog() -> dict[str, Any]:
-    items: list[dict[str, Any]] = []
-    for app in _catalog():
-        profile = _recording_profile_payload(app.slug)
-        items.append(
-            {
-                "kind": "local_app",
-                "name": app.name,
-                "slug": app.slug,
-                "url": app.url,
-                "capture_url": (
-                    f"/apps/{app.slug}/open?capture=1&language={profile['default_language']}"
-                ),
-                "repo": str(app.processes[0].repo) if app.processes else "",
-                "recording": profile,
-            }
-        )
-    for link in _static_links():
-        profile = _recording_profile_payload(link.slug)
-        items.append(
-            {
-                "kind": "static_link",
-                "name": link.name,
-                "slug": link.slug,
-                "url": link.url,
-                "capture_url": (
-                    f"/links/{link.slug}/open?capture=1&language={profile['default_language']}"
-                ),
-                "repo": "",
-                "recording": profile,
-            }
-        )
-    return {
-        "name": "Project Studio Recording Studio",
-        "capture_mode": "shared_runtime_managed_chrome",
-        "capture_query": {"capture": "1", "language": "<language-code>"},
-        "export_api_base": "http://127.0.0.1:3015/api/walkthrough-export",
-        "export_services": [_recording_service_payload(service) for service in _video_export_services()],
-        "integration_contract": {
-            "basic_capture": "Project Studio injects one shared recording runtime into managed Chrome for registered apps and links.",
-            "full_walkthrough_export": (
-                "No app package is required. Stable data-walkthrough-target markers and an optional "
-                "__projectStudioAdapter improve targeting and state restoration. Preview and export use the same runtime."
-            ),
-            "state_window_key_default": "__projectStudioAdapter",
-            "language_storage_key_default": "moonshot-language",
-            "app_state_change_event_default": "moonshot-walkthrough-app-state-change",
-        },
-        "items": items,
-    }
-
-
 def _find_app(slug: str) -> AppLauncher | None:
     return next((app for app in _catalog() if app.slug == slug), None)
 
@@ -1994,6 +1802,29 @@ def _json_response(handler: BaseHTTPRequestHandler, payload: Any, status: int = 
     handler.wfile.write(body)
 
 
+
+def _reload_catalog():
+    current = catalog()
+    if current == _user_catalog:
+        return
+    with _ITEM_STATE_LOCK:
+        _user_catalog.clear(); _user_catalog.update(current)
+        for name in ('CARD_ASSETS', 'CARD_GROUPS', 'CARD_TAGS', 'APP_VERSION_OPTIONS',
+                     'APP_DEFAULT_VERSIONS', 'RESOURCE_POLICIES', 'PORTFOLIO_COPY', 'TAG_FILTERS'):
+            globals()[name] = current['metadata'].get(name, [] if name == 'TAG_FILTERS' else {})
+
+
+def _asset_path(relative):
+    # User media may override images/docs, never application JavaScript or CSS.
+    roots = [PROJECT_STUDIO_ASSETS]
+    if Path(relative).parts and Path(relative).parts[0] in MEDIA:
+        roots.insert(0, state_root() / 'media')
+    for root in roots:
+        path = (root / relative).resolve()
+        if root.resolve() in path.parents and path.is_file():
+            return path
+    return None
+
 def _asset_url(relative_path: str | None) -> str:
     if not relative_path:
         return ""
@@ -2012,8 +1843,7 @@ def _asset_exists(relative_path: str | None) -> bool:
     if not relative_path:
         return False
     try:
-        path = (PROJECT_STUDIO_ASSETS / relative_path).resolve()
-        return PROJECT_STUDIO_ASSETS.resolve() in path.parents and path.is_file()
+        return _asset_path(relative_path) is not None
     except OSError:
         return False
 
@@ -2050,9 +1880,10 @@ def _card_photo_assets(slug: str) -> list[str]:
             selected.append(relative_path)
 
     def add_matches(folder: str, pattern: str) -> None:
-        for path in sorted((PROJECT_STUDIO_ASSETS / folder).glob(pattern)):
-            if path.is_file():
-                add(str(path.relative_to(PROJECT_STUDIO_ASSETS)))
+        for root in (state_root() / 'media', PROJECT_STUDIO_ASSETS):
+            for path in sorted((root / folder).glob(pattern)):
+                if path.is_file():
+                    add(str(path.relative_to(root)))
 
     # Keep visual previews tied to the app slug. Do not backfill with unrelated
     # app photos, because that makes cards and detail modals look misassigned.
@@ -2073,10 +1904,10 @@ def _card_group(slug: str) -> dict[str, str]:
 
 
 def _asset_url_versioned(relative_path: str) -> str:
-    path = PROJECT_STUDIO_ASSETS / relative_path
+    path = _asset_path(relative_path)
     try:
         version = path.stat().st_mtime_ns
-    except OSError:
+    except (OSError, AttributeError):
         version = int(time.time())
     return f"/project-studio-assets/{relative_path}?v={version}"
 
@@ -2338,7 +2169,6 @@ def _detail_attrs(
 ) -> str:
     group = _card_group(slug)
     copy = PORTFOLIO_COPY.get(slug, {})
-    recording = _recording_profile_payload(slug)
     photos = [_asset_url(path) for path in _card_photo_assets(slug)]
     icon_url = _asset_url(_card_asset(slug, "icon"))
     description = copy.get("description") or (
@@ -2370,9 +2200,6 @@ def _detail_attrs(
         "data-detail-stop-api": stop_api,
         "data-detail-doc-url": _card_reference_url(slug, "doc"),
         "data-detail-pdf-url": _card_reference_url(slug, "pdf"),
-        "data-recording-languages": json.dumps(recording["languages"]),
-        "data-recording-default-language": recording["default_language"],
-        "data-recording-video-export": str(recording["video_export_enabled"]).lower(),
         "data-detail-static": str(static).lower(),
         "data-detail-disabled": str(disabled).lower(),
         "data-detail-versions": json.dumps(_app_version_options(slug)),
@@ -2549,8 +2376,8 @@ def _text_response(handler: BaseHTTPRequestHandler, text: str, status: int = 200
 def _asset_response(handler: BaseHTTPRequestHandler, relative_path: str) -> None:
     try:
         asset_root = PROJECT_STUDIO_ASSETS.resolve()
-        path = (PROJECT_STUDIO_ASSETS / relative_path).resolve()
-        if asset_root not in path.parents or not path.is_file() or path == asset_root / "credentials.html":
+        path = _asset_path(relative_path)
+        if path is None or path == asset_root / "credentials.html":
             _text_response(handler, "Not found", status=404)
             return
         info = path.stat()
@@ -2579,32 +2406,20 @@ def _asset_response(handler: BaseHTTPRequestHandler, relative_path: str) -> None
     handler.wfile.write(data)
 
 
-
 def _app_loading_html(
     app: AppLauncher,
     status: dict[str, Any],
-    *,
-    capture_enabled: bool = False,
-    recording_profile: RecordingStudioProfile | None = None,
-    selected_language: str | None = None,
-    service_statuses: list[tuple[VideoExportService, dict[str, Any]]] | None = None,
 ) -> str:
-    if not capture_enabled and status.get("focused_existing_tab"):
+    if status.get("focused_existing_tab"):
         return _focused_tab_html(app.name, str(status.get("runtime_url") or app.url), status.get("tab_focus", {}))
     payload = json.dumps({
         "appId": app.slug,
         "url": status.get("runtime_url") or status.get("url") or app.url,
-        "capture": capture_enabled,
         "ready": bool(status.get("ready")) or not app.processes,
-        "language": _normalized_recording_language(app.slug, selected_language),
-        "languages": [item.code for item in _recording_profile(app.slug).languages],
-        "videoExportEnabled": _recording_profile(app.slug).video_export_enabled,
-        "readySelector": '[data-walkthrough-target="dashboard"]' if app.slug == "fe-moonshot" else "body",
         "statusUrl": f"/api/apps/{app.slug}/status",
         "launchUrl": f"/api/apps/{app.slug}/launch",
         "diagnostic": str(status.get("diagnostic") or ""),
         "suggestions": [str(item) for item in (status.get("suggestions") or [])],
-        "serviceBase": "http://127.0.0.1:3015",
     }).replace("<", "\\u003c")
     return """<!doctype html><html><head><meta charset="utf-8">
     <title>Project Studio</title><style>
@@ -2617,7 +2432,6 @@ def _app_loading_html(
     const app = """ + payload + """;
     const message = document.getElementById('message');
     const retry = document.getElementById('retry');
-    document.getElementById('heading').textContent = app.capture ? 'Opening Recording Studio' : 'Opening app';
     let running = false;
     function blocked() {
       return !app.ready && app.diagnostic
@@ -2647,27 +2461,11 @@ def _app_loading_html(
               if (blocked()) throw new Error(blocked());
             }
           }
-          let serviceReady = !app.capture;
-          if (app.capture) {
-            try {
-              const response = await fetch(app.serviceBase + '/api/recording-studio/health');
-              serviceReady = response.ok && (await response.json()).version === 1;
-            } catch {}
-          }
-          if (app.ready && serviceReady) break;
-          if (Date.now() > deadline) throw new Error('App or Recording Studio did not start. Check the launch logs, then retry.');
+          if (app.ready) break;
+          if (Date.now() > deadline) throw new Error('App did not start. Check the launch logs, then retry.');
           await new Promise(resolve => setTimeout(resolve, 1000));
         }
-        if (!app.capture) { location.replace(app.url); return; }
-        message.textContent = 'Opening managed Chrome with the shared recorder...';
-        const response = await fetch(app.serviceBase + '/api/recording-studio/sessions', {
-          method: 'POST', headers: {'Content-Type':'application/json'},
-          body: JSON.stringify({appId:app.appId,url:app.url,language:app.language,languages:app.languages,readySelector:app.readySelector,videoExportEnabled:app.videoExportEnabled,
-            recordingId:new URLSearchParams(location.search).get('recording') || undefined})
-        });
-        const result = await response.json();
-        if (!response.ok) throw new Error(result.error || 'Could not open Recording Studio');
-        message.textContent = 'Recording Studio is open in Chrome. Your recordings save automatically to Project Studio. Edit, preview and export from the same panel.';
+        location.replace(app.url);
       } catch(error) {
         message.textContent = error.message;
         retry.hidden = false;
@@ -2684,67 +2482,6 @@ def _app_loading_html(
     };
     open();
     </script></body></html>"""
-
-
-def _service_loading_html(service: VideoExportService, status: dict[str, Any]) -> str:
-    payload = json.dumps({"url": service.health_url, "name": service.name})
-    started = ", ".join(status.get("started", [])) or "existing process"
-    return f"""<!doctype html>
-<html lang="en">
-<head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Starting {html.escape(service.name)}</title>
-  <style>
-    :root {{ color-scheme: dark; font-family: Avenir Next, Helvetica Neue, Helvetica, Arial, sans-serif; }}
-    * {{ box-sizing: border-box; }}
-    body {{ min-height: 100vh; margin: 0; display: grid; place-items: center; color: #ecf7ff; background: radial-gradient(circle at 18% 14%, rgba(110,86,244,.24), transparent 28rem), radial-gradient(circle at 78% 76%, rgba(255,216,107,.16), transparent 28rem), linear-gradient(145deg, #05111c, #0a1a28 55%, #08121b); }}
-    main {{ width: min(640px, calc(100vw - 32px)); padding: 30px; border: 1px solid rgba(158,214,237,.18); border-radius: 28px; background: rgba(10,28,43,.78); box-shadow: 0 26px 90px rgba(0,0,0,.36); backdrop-filter: blur(18px); }}
-    p.eyebrow {{ margin: 0 0 10px; color: #c9bdff; font-size: 12px; letter-spacing: .18em; text-transform: uppercase; }}
-    h1 {{ margin: 0; font-size: clamp(34px, 6vw, 58px); line-height: .96; letter-spacing: -.06em; }}
-    p {{ color: rgba(236,247,255,.68); line-height: 1.55; }}
-    .bar {{ height: 8px; overflow: hidden; margin-top: 24px; border-radius: 999px; background: rgba(255,255,255,.08); }}
-    .bar::before {{ content: ""; display: block; width: 42%; height: 100%; border-radius: inherit; background: linear-gradient(90deg, #6e56f4, #ffd86b); animation: load 1s ease-in-out infinite alternate; }}
-    @keyframes load {{ from {{ transform: translateX(-30%); }} to {{ transform: translateX(170%); }} }}
-    #status {{ margin-top: 18px; color: #fff2bd; font-weight: 800; }}
-    .actions {{ display: flex; gap: 10px; flex-wrap: wrap; margin-top: 22px; }}
-    a {{ color: #ecf7ff; text-decoration: none; }}
-    .button {{ padding: 10px 14px; border: 1px solid rgba(158,214,237,.22); border-radius: 999px; background: rgba(255,255,255,.06); font-weight: 800; }}
-    .button:hover {{ background: rgba(255,255,255,.1); }}
-  </style>
-</head>
-<body>
-  <main>
-    <p class="eyebrow">Recording Studio service</p>
-    <h1>{html.escape(service.name)}</h1>
-    <p>Started: {html.escape(started)}. Keep this service running while exporting recordings or walkthrough videos from Project Studio apps.</p>
-    <div class="bar" aria-hidden="true"></div>
-    <div id="status">Checking export server...</div>
-    <div class="actions">
-      <a class="button" href="/" target="_blank" rel="noopener">Open Project Studio</a>
-      <a class="button" href="/services/{html.escape(service.slug)}/logs" target="_blank" rel="noopener">Open export logs</a>
-      <a class="button" href="/">Back to launcher</a>
-    </div>
-  </main>
-  <script>
-    const service = {payload};
-    const statusEl = document.getElementById('status');
-    let checks = 0;
-    async function check() {{
-      checks += 1;
-      try {{
-        await fetch(service.url, {{ mode: 'no-cors', cache: 'no-store' }});
-        statusEl.textContent = 'Connected. The browser export server is ready.';
-        return;
-      }} catch (error) {{
-        statusEl.textContent = `Waiting for video export server (${{checks}})...`;
-        setTimeout(check, checks < 90 ? 700 : 1600);
-      }}
-    }}
-    check();
-  </script>
-</body>
-</html>"""
 
 
 def _logs_html(app: AppLauncher) -> str:
@@ -3062,7 +2799,6 @@ def _index_html() -> str:
               <select id="detailVersion" aria-label="Version to view"></select>
             </label>
             <a class="detail-launch" id="detailLaunch" href="#">↗ Launch App</a>
-            <button class="detail-capture-toggle" id="detailCapture" type="button" aria-pressed="false" aria-label="Enable recording tools" title="Enable recording tools"></button>
           </section>
           <section class="detail-meta-board" aria-label="Project metadata">
             <div><dt>Group</dt><dd id="detailGroup">-</dd></div>
@@ -3112,6 +2848,7 @@ def _index_html() -> str:
       <button type="button" id="cancelAddProject">Cancel</button><button type="submit">Add project</button>
     </form>
   </dialog>
+  <script type="application/json" id="studioPreferences">{json.dumps(preferences(state_root())).replace('<', chr(92)+'u003c')}</script>
   <script type="application/json" id="studioData">{initial_payload}</script>
   <script src="{html.escape(_asset_url_versioned("studio.js"))}"></script>
   <script src="{html.escape(_asset_url_versioned("portfolio.js"))}"></script>
@@ -3137,6 +2874,7 @@ class Handler(BaseHTTPRequestHandler):
     def do_GET(self) -> None:
         if studio_auth.protect(self):
             return
+        _reload_catalog()
         self._dispatch_get()
 
     def _dispatch_get(self) -> None:
@@ -3175,9 +2913,6 @@ class Handler(BaseHTTPRequestHandler):
         if path == "/api/project-studio/setup":
             _json_response(self, _project_studio_setup_payload())
             return
-        if path == "/api/recording-studio":
-            _json_response(self, _recording_studio_catalog())
-            return
         if path == "/stop-all":
             result = _stop_all_local_apps()
             rows = [
@@ -3187,41 +2922,7 @@ class Handler(BaseHTTPRequestHandler):
             ]
             _text_response(
                 self,
-                _action_result_html("Stopped local apps", "All tracked local app and recording-extension processes were asked to stop.", rows),
-                content_type="text/html",
-            )
-            return
-        if path.startswith("/services/") and path.endswith("/open"):
-            slug = path.split("/")[2]
-            service = _find_service(slug)
-            if service is None:
-                _text_response(self, "Unknown service", status=404)
-                return
-            _text_response(
-                self,
-                _service_loading_html(service, _start_app(_service_app(service))),
-                content_type="text/html",
-            )
-            return
-        if path.startswith("/services/") and path.endswith("/logs"):
-            slug = path.split("/")[2]
-            service = _find_service(slug)
-            if service is None:
-                _text_response(self, "Unknown service", status=404)
-                return
-            _text_response(self, _logs_html(_service_app(service)), content_type="text/html")
-            return
-        if path.startswith("/services/") and path.endswith("/stop"):
-            slug = path.split("/")[2]
-            service = _find_service(slug)
-            if service is None:
-                _text_response(self, "Unknown service", status=404)
-                return
-            status = _stop_app(_service_app(service))
-            rows = [f"{process['name']}: {process['message']}" for process in status.get("stopped", [])]
-            _text_response(
-                self,
-                _action_result_html(f"Stopped {service.name}", "The recording extension was asked to stop.", rows),
+                _action_result_html("Stopped local apps", "All tracked local app processes were asked to stop.", rows),
                 content_type="text/html",
             )
             return
@@ -3231,40 +2932,12 @@ class Handler(BaseHTTPRequestHandler):
             if link is None:
                 _text_response(self, "Unknown link", status=404)
                 return
-            capture_enabled = _query_flag(self.path, "capture")
-            link_app = AppLauncher(
-                name=link.name,
-                slug=link.slug,
-                url=link.url,
-                note=link.note,
-                processes=(),
-            )
             _record_item_event(
                 link.slug,
                 "open",
                 ok=True,
                 message="opened hosted/static link",
-                details={"url": link.url, "capture": capture_enabled},
             )
-            if capture_enabled:
-                selected_language = _normalized_recording_language(slug, _query_value(self.path, "language"))
-                service_statuses = [
-                    (service, _start_app(_service_app(service)))
-                    for service in _video_export_services_for_app(slug)
-                ]
-                _text_response(
-                    self,
-                    _app_loading_html(
-                        link_app,
-                        {"started": ["hosted link"], "diagnostic": ""},
-                        capture_enabled=True,
-                        recording_profile=_recording_profile(slug),
-                        selected_language=selected_language,
-                        service_statuses=service_statuses,
-                    ),
-                    content_type="text/html",
-                )
-                return
             tab_focus = _focus_existing_browser_tab(link.url)
             if tab_focus.get("focused"):
                 _text_response(
@@ -3284,12 +2957,6 @@ class Handler(BaseHTTPRequestHandler):
             selected_version = _app_version_option(slug, _query_value(self.path, "version"))
             if selected_version and selected_version.get("mode") == "external":
                 target_url = selected_version["endpoint"]
-                if _query_flag(self.path, "capture"):
-                    services = [(service, _start_app(_service_app(service))) for service in _video_export_services()]
-                    target_app = AppLauncher(name=app.name, slug=app.slug, url=target_url, note=app.note, processes=())
-                    _text_response(self, _app_loading_html(target_app, {"ready": True}, capture_enabled=True,
-                        selected_language=_query_value(self.path, "language"), service_statuses=services), content_type="text/html")
-                    return
                 _record_item_event(
                     slug,
                     "open",
@@ -3307,14 +2974,8 @@ class Handler(BaseHTTPRequestHandler):
                     return
                 _text_response(self, "<!doctype html><html><head><meta http-equiv=\"refresh\" content=\"0;url=" + html.escape(target_url, quote=True) + "\"></head><body>Opening app</body></html>", content_type="text/html")
                 return
-            capture_enabled = _query_flag(self.path, "capture")
-            service_statuses = []
-            selected_language = _normalized_recording_language(app.slug, _query_value(self.path, "language"))
-            if capture_enabled:
-                for service in _video_export_services_for_app(app.slug):
-                    service_statuses.append((service, _start_app(_service_app(service))))
             status = _start_app(app)
-            if not capture_enabled and status.get("ready"):
+            if status.get("ready"):
                 target_url = str(status.get("runtime_url") or status.get("url") or app.url)
                 tab_focus = _focus_existing_browser_tab(target_url)
                 if tab_focus.get("focused"):
@@ -3330,10 +2991,6 @@ class Handler(BaseHTTPRequestHandler):
                 _app_loading_html(
                     app,
                     status,
-                    capture_enabled=capture_enabled,
-                    recording_profile=_recording_profile(app.slug),
-                    selected_language=selected_language,
-                    service_statuses=service_statuses,
                 ),
                 content_type="text/html",
             )
@@ -3360,13 +3017,8 @@ class Handler(BaseHTTPRequestHandler):
             if app is None:
                 _text_response(self, "Unknown app", status=404)
                 return
-            status = _stop_app_with_services(app)
+            status = _stop_app(app)
             rows = [f"{process['name']}: {process['message']}" for process in status.get("stopped", [])]
-            for extension in status.get("recording_extensions_stopped", []):
-                rows.extend(
-                    f"{extension.get('name', 'Recording extension')} {process['name']}: {process['message']}"
-                    for process in extension.get("stopped", [])
-                )
             _text_response(
                 self,
                 _action_result_html(f"Stopped {app.name}", "The local app was asked to stop.", rows),
@@ -3392,6 +3044,17 @@ class Handler(BaseHTTPRequestHandler):
         if studio_credentials.handle(self, mutation=True):
             return
         path = urlparse(self.path).path
+        _reload_catalog()
+        if path == "/api/preferences":
+            try:
+                size=int(self.headers.get('Content-Length','0'))
+                if not 0 < size <= 2_000_000: raise ValueError('Preferences exceed limit')
+                values=json.loads(self.rfile.read(size))
+                with _ITEM_STATE_LOCK: save_preferences(state_root(), values)
+                _json_response(self, {'ok':True})
+            except (ValueError, TypeError) as error:
+                _json_response(self, {'error':str(error)},status=400)
+            return
         if path == "/api/projects/register":
             try:
                 from app.registry import save_catalog, validate
@@ -3428,7 +3091,7 @@ class Handler(BaseHTTPRequestHandler):
             if app is None:
                 _json_response(self, {"error": "Unknown app"}, status=404)
                 return
-            _json_response(self, _stop_app_with_services(app))
+            _json_response(self, _stop_app(app))
             return
         _json_response(self, {"error": "Not found"}, status=404)
 

@@ -1,6 +1,7 @@
 import Cocoa
 import WebKit
 import Darwin
+import Sparkle
 
 // A stable origin preserves WebKit portfolio/layout preferences between launches.
 final class Studio: NSObject, NSApplicationDelegate, WKNavigationDelegate, WKUIDelegate {
@@ -11,12 +12,23 @@ final class Studio: NSObject, NSApplicationDelegate, WKNavigationDelegate, WKUID
     var poll: Timer?
     var attempts = 0
     var checking = false
-    let port = 18765
-    let state = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Library/Application Support/Project Studio")
+    var quitting = false
+    var recoveryCount = 0
+    var updater: SPUStandardUpdaterController?
+    var instanceLock: Int32 = -1
+    let port = Int(ProcessInfo.processInfo.environment["PROJECT_STUDIO_PORT"] ?? "18765") ?? 18765
+    let state = ProcessInfo.processInfo.environment["PROJECT_STUDIO_DATA_DIR"].map { URL(fileURLWithPath: $0) } ?? FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Library/Application Support/Project Studio")
     var origin: URL { URL(string: "http://127.0.0.1:\(port)")! }
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        try? FileManager.default.createDirectory(at: state, withIntermediateDirectories: true)
+        instanceLock = Darwin.open(state.appendingPathComponent("desktop.lock").path, O_CREAT | O_RDWR, 0o600)
+        if instanceLock < 0 || flock(instanceLock, LOCK_EX | LOCK_NB) != 0 {
+            NSRunningApplication.runningApplications(withBundleIdentifier: Bundle.main.bundleIdentifier ?? "").first(where: { $0.processIdentifier != ProcessInfo.processInfo.processIdentifier })?.activate(options: [.activateAllWindows])
+            NSApp.terminate(nil); return
+        }
         NSApp.setActivationPolicy(.regular)
+        updater = SPUStandardUpdaterController(startingUpdater: true, updaterDelegate: nil, userDriverDelegate: nil)
         let menu = NSMenu()
         let item = NSMenuItem()
         let appMenu = NSMenu(title: "Project Studio")
@@ -41,6 +53,7 @@ final class Studio: NSObject, NSApplicationDelegate, WKNavigationDelegate, WKUID
     }
     func start() {
         guard port > 0, let resources = Bundle.main.resourceURL else { fail("Cannot allocate a local service port."); return }
+        attempts = 0; checking = false; poll?.invalidate(); try? log?.close()
         do {
             try FileManager.default.createDirectory(at: state, withIntermediateDirectories: true)
             let logURL = state.appendingPathComponent("desktop.log")
@@ -56,6 +69,16 @@ final class Studio: NSObject, NSApplicationDelegate, WKNavigationDelegate, WKUID
             environment["PROJECT_STUDIO_PORT"] = String(port)
             environment["PATH"] = "/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin"
             process.environment = environment; process.standardOutput = log; process.standardError = log
+            process.terminationHandler = { [weak self] process in
+                DispatchQueue.main.async {
+                    guard let self, !self.quitting else { return }
+                    self.poll?.invalidate()
+                    if self.attempts > 0 && self.recoveryCount < 1 {
+                        self.recoveryCount += 1
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 1) { self.start() }
+                    } else { self.fail("The local service stopped or port 18765 is occupied. Close the conflicting service, then use Reload to retry. See desktop.log in Application Data.") }
+                }
+            }
             try process.run(); server = process
             poll = Timer.scheduledTimer(withTimeInterval: 0.25, repeats: true) { [weak self] _ in self?.checkReady() }
         } catch { fail("Could not start the bundled service. Open Application Data to inspect desktop.log.") }
@@ -69,7 +92,7 @@ final class Studio: NSObject, NSApplicationDelegate, WKNavigationDelegate, WKUID
         URLSession.shared.dataTask(with: request) { [weak self] data, _, _ in
             DispatchQueue.main.async {
                 guard let self else { return }; self.checking = false
-                guard let data, let body = try? JSONSerialization.jsonObject(with: data) as? [String: Any], body["application"] as? String == "project-studio" else { return }
+                guard let data, let body = try? JSONSerialization.jsonObject(with: data) as? [String: Any], body["application"] as? String == "project-studio", body["pid"] as? Int32 == self.server?.processIdentifier else { return }
                 self.poll?.invalidate(); self.loadStudio()
             }
         }.resume()
@@ -82,13 +105,18 @@ final class Studio: NSObject, NSApplicationDelegate, WKNavigationDelegate, WKUID
         web.load(URLRequest(url: url.url!))
     }
     func fail(_ message: String) { web.loadHTMLString("<body style='font:18px -apple-system;padding:48px'><h1>Project Studio</h1><p>\(message)</p></body>", baseURL: nil) }
-    @objc func reload() { loadStudio() }
+    @objc func reload() { if server?.isRunning == true { loadStudio() } else { recoveryCount = 0; start() } }
     @objc func openData() { NSWorkspace.shared.open(state) }
     @objc func about() { NSApp.orderFrontStandardAboutPanel(nil) }
-    @objc func updates() { NSWorkspace.shared.open(URL(string:"https://github.com/Ben-Keller/project-studio/releases")!) }
+    @objc func updates() {
+        let alert = NSAlert(); alert.messageText = "Check for Project Studio updates?"
+        alert.informativeText = "Finish any workspace changes first. Launched tools stay running independently. Installation requires your confirmation."
+        alert.addButton(withTitle: "Check for Updates"); alert.addButton(withTitle: "Cancel")
+        if alert.runModal() == .alertFirstButtonReturn { updater?.checkForUpdates(nil) }
+    }
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool { window.makeKeyAndOrderFront(nil); NSApp.activate(ignoringOtherApps: true); return true }
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool { false }
-    func applicationWillTerminate(_ notification: Notification) { poll?.invalidate(); if server?.isRunning == true { server?.terminate() }; try? log?.close() }
+    func applicationWillTerminate(_ notification: Notification) { quitting = true; poll?.invalidate(); if server?.isRunning == true { server?.terminate() }; try? log?.close() }
     func local(_ url: URL) -> Bool { url.scheme == "http" && url.host == "127.0.0.1" && url.port == port }
     func webView(_ webView: WKWebView, decidePolicyFor action: WKNavigationAction, decisionHandler: @escaping (WKNavigationActionPolicy) -> Void) {
         guard let url = action.request.url else { decisionHandler(.cancel); return }

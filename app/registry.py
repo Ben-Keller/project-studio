@@ -6,7 +6,7 @@ import tempfile
 from urllib.parse import urlparse
 from .paths import catalog_path
 
-EMPTY = {'schema_version': 1, 'apps': [], 'links': [], 'planned': [], 'metadata': {}, 'recording_profiles': {}}
+EMPTY = {'schema_version': 1, 'apps': [], 'links': [], 'planned': [], 'metadata': {}}
 
 def validate(value):
     if not isinstance(value, dict) or value.get('schema_version') != 1:

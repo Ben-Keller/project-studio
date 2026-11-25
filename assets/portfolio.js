@@ -41,7 +41,7 @@
   }
 
   function loadSettings() {
-    const saved = safeJsonParse(localStorage.getItem(storageKey), {});
+    const saved = safeJsonParse(window.studioPreferences.getItem(storageKey), {});
     return {
       ...clone(defaults),
       ...saved,
@@ -53,7 +53,7 @@
   let settings = loadSettings();
 
   function saveSettings() {
-    localStorage.setItem(storageKey, JSON.stringify(settings));
+    window.studioPreferences.setItem(storageKey, JSON.stringify(settings));
   }
 
   function escapeHtml(value) {
@@ -593,7 +593,7 @@
 
   function setMode(mode) {
     const next = mode === 'portfolio' ? 'portfolio' : 'studio';
-    localStorage.setItem(modeStorageKey, next);
+    window.studioPreferences.setItem(modeStorageKey, next);
     document.querySelectorAll('[data-app-mode]').forEach(button => {
       const active = button.dataset.appMode === next;
       button.classList.toggle('active', active);
@@ -719,5 +719,5 @@
     if (placeholder) placeholder.hidden = false;
   }, true);
 
-  setMode(localStorage.getItem(modeStorageKey) === 'portfolio' ? 'portfolio' : 'studio');
+  setMode(window.studioPreferences.getItem(modeStorageKey) === 'portfolio' ? 'portfolio' : 'studio');
 })();

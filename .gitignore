@@ -5,9 +5,6 @@ __pycache__/
 .DS_Store
 # Local state and generated reports: metadata only, but machine-specific and large
 outputs/
-recording-studio/node_modules/
-recording-studio/dist/
-recording-studio/outputs/
 
 # Personal inventories and machine-local release artifacts are never published.
 data/
@@ -21,3 +18,4 @@ release/.venv/
 !.env.example
 *.p12
 *.p8
+release/vendor/

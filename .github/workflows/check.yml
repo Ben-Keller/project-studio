@@ -9,7 +9,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
-          python-version: '3.13'
+          python-version: '3.13.14'
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
@@ -17,8 +17,6 @@ jobs:
       - run: python local_tools_launcher.py --check
       - run: python release/check_source.py .
       - run: node --check assets/studio.js && node --check assets/portfolio.js && node --check assets/credentials.js
-      - run: npm ci && npm run typecheck && npm run build
-        working-directory: recording-studio
   macos-preview:
     if: github.event_name == 'push'
     runs-on: macos-15
@@ -26,9 +24,14 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
-          python-version: '3.13'
+          python-version: '3.13.14'
       - run: python -m pip install -r release/requirements.txt
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
       - run: python release/build_macos.py --dmg
+      - run: npm install --prefix /tmp/studio-browser-check playwright@1.60.0
+      - run: NODE_PATH=/tmp/studio-browser-check/node_modules node tests/release_browser.cjs
       - uses: actions/upload-artifact@v4
         with:
           name: Project-Studio-macOS-arm64-preview

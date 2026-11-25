@@ -7,7 +7,7 @@ import sys
 from .paths import ROOT, state_root, catalog_path
 from .registry import catalog, validate, save_catalog
 
-COMMANDS = {'projects', 'integrations', 'doctor', 'import-workspace'}
+COMMANDS = {'projects', 'integrations', 'doctor', 'import-workspace', 'backup', 'restore', 'launch', 'stop', 'status'}
 
 def main(argv):
     parser = argparse.ArgumentParser(prog='studio')
@@ -25,7 +25,20 @@ def main(argv):
     migrate = sub.add_parser('import-workspace')
     migrate.add_argument('source', type=Path)
     migrate.add_argument('--apply', action='store_true', help='Copy into an empty workspace; source is never modified')
+    backup = sub.add_parser('backup'); backup.add_argument('destination', type=Path)
+    restore = sub.add_parser('restore'); restore.add_argument('source', type=Path); restore.add_argument('--apply', action='store_true')
+    for action in ('launch', 'stop', 'status'):
+        sub.add_parser(action).add_argument('slug')
     args = parser.parse_args(argv)
+    if args.command in ('launch', 'stop', 'status'):
+        print(json.dumps(runtime_action(args.command, args.slug), indent=2)); return 0
+    if args.command in ('backup', 'restore'):
+        from .workspace import copy_workspace
+        if args.command == 'backup':
+            source_checkout=state_root()==ROOT/'outputs'
+            result = copy_workspace(ROOT if source_checkout else state_root(), args.destination, checkout=source_checkout, apply=True)
+        else: result = copy_workspace(args.source, state_root(), apply=args.apply)
+        print(json.dumps(result,indent=2)); return 0
     if args.command == 'projects':
         if args.operation == 'list':
             print(json.dumps(catalog(), indent=2)); return 0
@@ -41,10 +54,10 @@ def main(argv):
             parser.error('Project already exists; refusing to overwrite it')
         current['apps'].append(value)
         save_catalog(current)
-        print('Registered. Restart Studio to refresh its catalog. No commands executed.')
+        print('Registered. Reload Studio to refresh its catalog. No commands executed.')
     elif args.command == 'doctor':
         result = {'platform': sys.platform, 'state': str(state_root()), 'catalog': str(catalog_path()),
-                  'projects': len(catalog()['apps']), 'recording_dependencies': {name: bool(shutil.which(name)) for name in ('node','ffmpeg')},
+                  'projects': len(catalog()['apps']),
                   'views': ['Studio','Portfolio','Keys']}
         print(json.dumps(result, indent=2))
     elif args.command == 'integrations':
@@ -57,27 +70,25 @@ def main(argv):
         shutil.copytree(source, target)
         print(f'Installed {args.agent} skill: {target}')
     elif args.command == 'import-workspace':
-        source = args.source.expanduser().resolve()
-        destination = state_root().resolve()
-        if source == ROOT.resolve() and destination == (ROOT/'outputs').resolve():
-            parser.error('Choose a separate PROJECT_STUDIO_DATA_DIR for migration')
-        pairs = [(source/'outputs/private', destination/'private'),
-                 (source/'outputs/launcher-ui', destination/'launcher-ui'),
-                 (source/'outputs/credentials', destination/'credentials'),
-                 (source/'data', destination/'credentials/inventory'),
-                 (source/'recording-studio/outputs/recordings', destination/'recording-studio/recordings'),
-                 (source/'recording-studio/outputs/exports', destination/'recording-studio/exports')]
-        pairs = [(a,b) for a,b in pairs if a.exists()]
-        if not (source/'outputs/private/catalog.json').is_file():
-            parser.error('Source needs an extracted catalog; update the source installation first')
-        print(json.dumps([{'from':str(a),'to':str(b)} for a,b in pairs],indent=2))
-        if args.apply:
-            if destination.exists() and any(destination.iterdir()):
-                parser.error('Destination must be empty; nothing overwritten')
-            try:
-                for a,b in pairs: shutil.copytree(a,b,dirs_exist_ok=True)
-                print('Copied successfully. Original installation preserved. Browser-local preferences and Keychain access are not migrated.')
-            except Exception:
-                print('Import incomplete. Source preserved; inspect the new destination before retrying.',file=sys.stderr)
-                raise
+        from .workspace import copy_workspace
+        print(json.dumps(copy_workspace(args.source, state_root(), checkout=True, apply=args.apply), indent=2))
     return 0
+
+
+def runtime_action(action, slug):
+    """Use the same authenticated service as the UI; never create a second worker."""
+    import urllib.request
+    from urllib.parse import urlparse, quote
+    from .paths import auth_root
+    url = (state_root()/'launcher-ui/server.url').read_text().strip().rstrip('/')
+    parsed=urlparse(url)
+    if parsed.scheme!='http' or parsed.hostname!='127.0.0.1' or not parsed.port:
+        raise ValueError('Expected the local Project Studio service')
+    bootstrap=json.loads((auth_root()/f'{parsed.port}.json').read_text())['bootstrap']
+    def request(path, body=None, session=None):
+        headers={'Origin':url,'Content-Type':'application/json','X-Studio-Action':'1'}
+        if session: headers['X-Studio-Session']=session
+        req=urllib.request.Request(url+path,data=json.dumps(body).encode() if body is not None else None,headers=headers)
+        with urllib.request.urlopen(req,timeout=120) as response:return json.load(response)
+    session=request('/api/studio/session',{'bootstrap':bootstrap})['session']
+    return request(f'/api/apps/{quote(slug,safe="")}/{action}',None if action=='status' else {},session)
