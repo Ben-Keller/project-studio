@@ -9,7 +9,8 @@ from dependencies import ROOT
 def main():
     archive=ROOT/'release/build'/f'Project-Studio-{VERSION}-macOS-arm64-preview.dmg'
     if not archive.is_file():raise SystemExit('Build the DMG first')
-    staging=ROOT/'release/build/update-feed';staging.mkdir(exist_ok=True)
+    # Isolate each release so older archives cannot inherit the new download URL.
+    staging=ROOT/'release/build/update-feed'/VERSION;staging.mkdir(parents=True,exist_ok=True)
     shutil.copy2(archive,staging/archive.name)
     tool=ROOT/'release/vendor/sparkle/bin/generate_appcast'
     subprocess.run([str(tool),'--account','project-studio-updates','--download-url-prefix',

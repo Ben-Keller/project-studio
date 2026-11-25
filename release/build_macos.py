@@ -9,7 +9,7 @@ import subprocess
 import sys
 
 ROOT = Path(__file__).resolve().parents[1]
-VERSION = '0.2.0'
+VERSION = '0.2.1'
 sys.path.insert(0, str(ROOT))
 
 def main():
@@ -54,7 +54,7 @@ def main():
     with (app/'Contents/Info.plist').open('wb') as file:
         plistlib.dump({'CFBundleName':'Project Studio','CFBundleDisplayName':'Project Studio',
             'CFBundleIdentifier':'io.github.ben-keller.project-studio','CFBundleExecutable':'ProjectStudio',
-            'CFBundlePackageType':'APPL','CFBundleIconFile':'AppIcon','CFBundleVersion':'2',
+            'CFBundlePackageType':'APPL','CFBundleIconFile':'AppIcon','CFBundleVersion':'3',
             'SUFeedURL':'https://ben-keller.github.io/project-studio/appcast.xml',
             'SUPublicEDKey':(ROOT/'release/update-public-key.txt').read_text().strip(),
             'SUEnableAutomaticChecks':False, 'SUAutomaticallyUpdate':False,

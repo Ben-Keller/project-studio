@@ -1,3 +1,13 @@
+# Preview 0.2.1
+
+- Consolidated internal services in `app/`, utilities in `scripts/`, and tests in `tests/`.
+- Kept existing source launch commands and desktop entry points stable.
+- Included the shared Keys instructions in the app bundle and public source export.
+- Added interface screenshots and a repository map to the canonical README.
+- Verified the clean public source, packaged browser flows, and native startup/recovery.
+
+This remains an Apple Silicon preview: ad-hoc signed, not Apple notarized.
+
 # Preview 0.2.0
 
 - Recording Studio is independent and no longer shipped with Project Studio.
