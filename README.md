@@ -17,6 +17,26 @@ Project Studio brings local applications, prototypes and hosted tools into a nat
 macOS workspace. Keep your projects where they already live. Launch them deliberately,
 see what is running, and turn working software into a portfolio.
 
+## Download and install
+
+**[Download Project Studio for Mac (.dmg)](https://github.com/Ben-Keller/project-studio/releases/download/v0.2.1-preview.1/Project-Studio-0.2.1-macOS-arm64-preview.dmg)** · [All releases](https://github.com/Ben-Keller/project-studio/releases)
+
+1. Download and double-click the `.dmg` file.
+2. Drag **Project Studio** into **Applications**.
+3. Open **Project Studio** from Applications, then choose **Add project** to add your tools.
+
+**Requires macOS 13 or newer and an Apple Silicon Mac (M-series). Intel Macs are not supported.**
+Python and the interface are bundled: no Terminal setup is needed for Project Studio
+itself. Individual projects may still require their own dependencies. A fresh install
+starts with an empty library; your project code stays in its original folders.
+
+**Preview warning:** this build is ad-hoc signed, **not Apple-notarized**. macOS may
+block it from opening. Do not disable Gatekeeper globally. Apple signing and
+notarization are still required for a frictionless public installation.
+
+Updating an existing installation? Quit Project Studio before replacing it in
+Applications. Your workspace data is stored separately and is not replaced by the app.
+
 | Studio | Portfolio | Keys |
 |:---|:---|:---|
 | Organize projects, launch apps, inspect resources and stop servers. | Present selected work through ten layouts and project-level customization. | Track credential references and connect supported Infisical development workflows. |
