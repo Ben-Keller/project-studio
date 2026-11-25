@@ -174,9 +174,15 @@ def open_entry(project, name='', consumer='default'):
 
 def open_studio(url=None):
     port=default_port()
+    requested_url=url
     url=url or f'http://127.0.0.1:{port}/'
-    subprocess.Popen(service_command()+['--port',str(port),'--no-open'],
-                     stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, start_new_session=True)
+    if getattr(sys, 'frozen', False):
+        # The native window owns the packaged service, including recovery and updates.
+        bundle=Path(sys.executable).resolve().parents[3]
+        subprocess.run(['open',str(bundle)],check=True)
+    else:
+        subprocess.Popen(service_command()+['--port',str(port),'--no-open'],
+                         stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, start_new_session=True)
     import urllib.request
     time.sleep(.5)
     for _ in range(100):
@@ -184,7 +190,7 @@ def open_studio(url=None):
             with urllib.request.urlopen(f'http://127.0.0.1:{port}/healthz', timeout=.3) as response:
                 if response.status == 200:
                     target = studio_auth.owner_url(url)
-                    webbrowser.open(target)
+                    if requested_url is not None or not getattr(sys, 'frozen', False):webbrowser.open(target)
                     return
         except (OSError, ValueError):
             pass
