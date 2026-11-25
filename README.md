@@ -19,7 +19,7 @@ see what is running, and turn working software into a portfolio.
 
 ## Download and install
 
-**[Download Project Studio for Mac (.dmg)](https://github.com/Ben-Keller/project-studio/releases/download/v0.2.1-preview.1/Project-Studio-0.2.1-macOS-arm64-preview.dmg)** · [All releases](https://github.com/Ben-Keller/project-studio/releases)
+**[Download Project Studio for Mac (.dmg)](https://github.com/Ben-Keller/project-studio/releases/download/v0.2.2-preview.1/Project-Studio-0.2.2-macOS-arm64-preview.dmg)** · [All releases](https://github.com/Ben-Keller/project-studio/releases)
 
 1. Download and double-click the `.dmg` file.
 2. Drag **Project Studio** into **Applications**.

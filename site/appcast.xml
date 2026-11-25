@@ -3,13 +3,13 @@
     <channel>
         <title>Project Studio</title>
         <item>
-            <title>0.2.1</title>
-            <pubDate>Thu, 26 Nov 2026 01:28:17 +0530</pubDate>
-            <sparkle:version>3</sparkle:version>
-            <sparkle:shortVersionString>0.2.1</sparkle:shortVersionString>
+            <title>0.2.2</title>
+            <pubDate>Thu, 26 Nov 2026 01:59:23 +0530</pubDate>
+            <sparkle:version>4</sparkle:version>
+            <sparkle:shortVersionString>0.2.2</sparkle:shortVersionString>
             <sparkle:minimumSystemVersion>13.0</sparkle:minimumSystemVersion>
             <sparkle:hardwareRequirements>arm64</sparkle:hardwareRequirements>
-            <enclosure url="https://github.com/Ben-Keller/project-studio/releases/download/v0.2.1-preview.1/Project-Studio-0.2.1-macOS-arm64-preview.dmg" length="12360747" type="application/octet-stream" sparkle:edSignature="3WXJ20mlbDbfCjLLIChwfx1rHQXVO+zEWPgbegtcSutSHYA5KUAndQciHozAmpNNtmTT6ZYk8uE1DjNf1UAzAA=="/>
+            <enclosure url="https://github.com/Ben-Keller/project-studio/releases/download/v0.2.2-preview.1/Project-Studio-0.2.2-macOS-arm64-preview.dmg" length="12363631" type="application/octet-stream" sparkle:edSignature="wUGlqF4PrNgvhMhl5D/7VJh6cD+OWlarue/ayzUstyw/sjN/OfCrt5TJYL3ggikPN7qQe3sE5L9rVJ0CCtyoAQ=="/>
         </item>
     </channel>
 </rss>
