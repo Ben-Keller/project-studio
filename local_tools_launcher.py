@@ -29,8 +29,8 @@ if str(SCRIPT_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPT_DIR))
 
 from install_related_desktop_apps import AppLauncher, LaunchProcess, default_apps  # noqa: E402
-import studio_credentials  # noqa: E402
-import studio_auth
+from app import credentials as studio_credentials  # noqa: E402
+from app import auth as studio_auth
 from app.paths import state_root, cli_command
 from app.registry import catalog
 from app.workspace import preferences, save_preferences, MEDIA
@@ -3104,7 +3104,7 @@ def _port_ready(host: str, port: int) -> bool:
 
 
 SERVER_META_FILE = "server.json"
-_CODE_FILES = ("local_tools_launcher.py", "install_related_desktop_apps.py", "studio_credentials.py", "studio_cli.py", "credential_triage.py", "studio_auth.py", "studio_dev_access.py")
+_CODE_FILES = ("local_tools_launcher.py", "install_related_desktop_apps.py", "app/credentials.py", "studio_cli.py", "app/credential_triage.py", "app/auth.py", "app/dev_access.py")
 
 
 def _code_mtime() -> float:

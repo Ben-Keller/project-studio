@@ -13,10 +13,10 @@ import threading
 import webbrowser
 import time
 from app.paths import cli_command, service_command, default_port
-import studio_auth
-import studio_dev_access
+from app import auth as studio_auth
+from app import dev_access as studio_dev_access
 from urllib.parse import urlencode
-import studio_credentials as vault
+from app import credentials as vault
 
 
 def find_manifest(start=None):

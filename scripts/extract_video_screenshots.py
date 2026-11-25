@@ -13,7 +13,7 @@ import numpy as np
 from PIL import Image
 
 
-PROJECT_STUDIO_ROOT = Path(__file__).resolve().parent
+PROJECT_STUDIO_ROOT = Path(__file__).resolve().parents[1]
 REPO_ROOT = PROJECT_STUDIO_ROOT
 ASSETS_ROOT = PROJECT_STUDIO_ROOT / "assets"
 DEFAULT_CONFIG = ASSETS_ROOT / "video-screenshots.json"

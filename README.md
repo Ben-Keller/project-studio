@@ -21,6 +21,26 @@ see what is running, and turn working software into a portfolio.
 |:---|:---|:---|
 | Organize projects, launch apps, inspect resources and stop servers. | Present selected work through ten layouts and project-level customization. | Track credential references and connect supported Infisical development workflows. |
 
+## A look inside
+
+### Your working library
+Filter, arrange and open your projects from one place.
+
+![Studio project library](docs/images/studio.png)
+
+### From workspace to portfolio
+Give each project its own presentation, with editable layouts and device frames.
+
+![Portfolio project presentation](docs/images/portfolio.png)
+
+### Connect development keys
+Keep project access explicit without putting secret values in your catalog.
+
+![Keys project connection screen](docs/images/keys.png)
+
+These are real interface captures using a fictional demo workspace. Personal projects
+and credentials are not included. Portfolio placeholders are illustrative, not live apps.
+
 ## Preview status
 
 This repository is the **public collaboration preview**, not a completed production
@@ -66,7 +86,7 @@ python3 studio_cli.py projects validate examples/project.json
 
 Edit the example with your folder and command, review it, then register with
 `projects add examples/project.json --trust-commands`. Registration does not execute
-commands. Restart Studio after CLI registration.
+commands. Reload Studio after CLI registration.
 
 ## Build the macOS preview
 
@@ -94,6 +114,29 @@ an empty destination. Source data is preserved. Browser preferences and provider
 still require separate review; see [release status](docs/release/STATUS.md).
 
 ## Contributing
+
+### Repository layout
+
+| Folder | Responsibility |
+|:---|:---|
+| `app/` | Internal services, catalog, authentication and workspace storage |
+| `assets/` | Studio, Portfolio and Keys interfaces |
+| `desktop/` | Native macOS wrapper |
+| `scripts/` | Optional screenshot and media utilities |
+| `tests/` | Unit, browser and native smoke tests |
+| `docs/` | Documentation and README screenshots |
+| `release/` | Packaging and publication tooling; generated builds are ignored |
+| `integrations/` | Portable agent skill |
+| `examples/` | Example project registration |
+| `site/` | Public website and update feed |
+
+The stable entry points remain `local_tools_launcher.py` and `studio_cli.py` at the
+root, alongside the source-linked installers and static servers. Existing launch
+commands do not change. Runtime state is separate from source and remains ignored.
+
+README screenshots can be regenerated with `node scripts/capture_readme.cjs` when
+Playwright and Chrome are available. The script uses a disposable demo catalog and
+does not launch your projects or alter your settings.
 
 Keep the local-first architecture: Python service, native WebKit shell, vanilla Studio/
 Portfolio/Keys UI. Prefer small, tested changes over

@@ -65,7 +65,7 @@ def access_token(binding):
 
 
 def fetch_values(binding, environment='dev'):
-    import studio_credentials as vault
+    from app import credentials as vault
     if environment != 'dev':
         raise vault.CredentialError('Development identities cannot select staging or production.')
     try:
@@ -88,7 +88,7 @@ def fetch_values(binding, environment='dev'):
 def record_metadata(config):
     import datetime
     from zoneinfo import ZoneInfo
-    import studio_credentials as vault
+    from app import credentials as vault
     shared = config['shared_development_identity']
     expiry = datetime.datetime.fromisoformat(shared['expires_at']).astimezone(ZoneInfo('Europe/Istanbul')).date()
     state = vault.state()
@@ -109,7 +109,7 @@ def record_metadata(config):
 def renew():
     """Serialize administration; an interrupted attempt requires deliberate recovery."""
     import fcntl
-    import studio_credentials as vault
+    from app import credentials as vault
     CONFIG.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
     fd = os.open(CONFIG.with_suffix('.lock'), os.O_CREAT | os.O_RDWR | os.O_NOFOLLOW, 0o600)
     with os.fdopen(fd, 'w') as lock:
@@ -126,7 +126,7 @@ def renew():
 def _renew_locked():
     import datetime
     import uuid
-    import studio_credentials as vault
+    from app import credentials as vault
     config = vault.read_json(CONFIG, {})
     shared = config.get('shared_development_identity')
     if not shared:

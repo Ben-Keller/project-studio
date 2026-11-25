@@ -12,12 +12,11 @@ import secrets
 import shutil
 import subprocess
 import threading
-import studio_auth
-from credential_triage import CLASSES, enrich_inventory
+from app import auth as studio_auth
+from app.credential_triage import CLASSES, enrich_inventory
 from urllib.parse import urlparse
 
-from app.paths import state_root, inventory_root
-ROOT = Path(__file__).resolve().parent
+from app.paths import ROOT, state_root, inventory_root
 DATA = state_root() / 'credentials'
 SEED = inventory_root() / 'credential-register.json'
 DEPLOYMENTS = state_root() / 'deployment-credential-inventory.json'
@@ -80,7 +79,7 @@ def inventory():
     base['events'] = s['events']
     base['google_coverage'] = s.get('google_coverage', {})
     base['deployment_coverage'] = deployment_summary(deployment)
-    import studio_dev_access
+    from app import dev_access as studio_dev_access
     access = read_json(studio_dev_access.CONFIG, {})
     base['access_protection'] = {'development_projects': sum(e.get('status') == 'verified' for e in access.get('projects', {}).values()), 'development_expires_at': access.get('shared_development_identity', {}).get('expires_at'), 'staging': 'Migration pending', 'production': 'Migration pending'}
     base['phase'] = 'Implementation active. Vault copies and issuer rotations are tracked separately.'

@@ -37,6 +37,8 @@ def main():
         if name == 'assets':
             for file in (ROOT/name).iterdir():
                 if file.suffix in ('.js','.css','.html'): shutil.copy2(file,stage/file.name)
+            (stage/'docs').mkdir()
+            shutil.copy2(ROOT/'assets/docs/shared-credentials.md',stage/'docs/shared-credentials.md')
         else: shutil.copytree(ROOT/name,stage,dirs_exist_ok=True)
         command += ['--add-data', f'{stage}:{name}']
     command += [str(ROOT/'release/entry.py')]
