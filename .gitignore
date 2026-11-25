@@ -1,0 +1,23 @@
+assets/videos/*
+!assets/videos/.gitkeep
+__pycache__/
+*.py[cod]
+.DS_Store
+# Local state and generated reports: metadata only, but machine-specific and large
+outputs/
+recording-studio/node_modules/
+recording-studio/dist/
+recording-studio/outputs/
+
+# Personal inventories and machine-local release artifacts are never published.
+data/
+release/build/
+release/public-source/
+release/.venv/
+*.dmg
+*.zip
+.env
+.env.*
+!.env.example
+*.p12
+*.p8

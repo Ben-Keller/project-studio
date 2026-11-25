@@ -1,0 +1,35 @@
+name: Checks
+on: [push, pull_request]
+permissions:
+  contents: read
+jobs:
+  contracts:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: python -m unittest discover -s tests -p 'test_*.py'
+      - run: python local_tools_launcher.py --check
+      - run: python release/check_source.py .
+      - run: node --check assets/studio.js && node --check assets/portfolio.js && node --check assets/credentials.js
+      - run: npm ci && npm run typecheck && npm run build
+        working-directory: recording-studio
+  macos-preview:
+    if: github.event_name == 'push'
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - run: python -m pip install -r release/requirements.txt
+      - run: python release/build_macos.py --dmg
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Project-Studio-macOS-arm64-preview
+          path: release/build/*.dmg

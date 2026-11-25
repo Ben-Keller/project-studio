@@ -1,0 +1,66 @@
+    header {
+      position: sticky;
+      top: 0;
+      z-index: 40;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 24px;
+      padding: 22px clamp(22px, 4vw, 54px);
+      overflow: visible;
+      background: rgba(5, 17, 28, 0.74);
+      border-bottom: 1px solid rgba(158, 214, 237, 0.18);
+      backdrop-filter: blur(18px);
+    }
+    .brand p { margin: 0 0 4px; color: #9ddcf0; font-size: 12px; letter-spacing: 0.18em; text-transform: uppercase; }
+    .brand h1 { margin: 0; font-size: clamp(28px, 4vw, 48px); line-height: 0.95; letter-spacing: -0.06em; }
+.mode-nav {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px;
+  border: 1px solid rgba(158, 214, 237, 0.16);
+  border-radius: 999px;
+  background: rgba(4, 15, 25, 0.54);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+.mode-nav button,
+.mode-nav .credentials-nav-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-decoration: none;
+  min-height: 34px;
+  padding: 0 14px;
+  border: 0;
+  border-radius: 999px;
+  color: rgba(236, 247, 255, 0.64);
+  background: transparent;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+.mode-nav button.active, .mode-nav [aria-current="page"] {
+  color: #06111c;
+  background: linear-gradient(135deg, #b6f1ff, #72efc5);
+  box-shadow: 0 12px 30px rgba(87, 218, 236, 0.18);
+}
+header { font-family: "Avenir Next", "Helvetica Neue", Helvetica, Arial, sans-serif; line-height: normal; color: #ecf7ff; }
+header .brand { text-decoration: none; color: inherit; font-weight: 400; letter-spacing: normal; }
+header .brand h1 { font-weight: 700; }
+header .mode-nav { flex-shrink: 0; align-self: auto; }
+header .mode-nav a { align-self: auto; transition: none; }
+header .mode-nav a:hover, header .mode-nav button:hover { color: #ecf7ff; }
+header .mode-nav [aria-current="page"]:hover { color: #06111c; }
+header .mode-nav a:focus-visible, header .mode-nav button:focus-visible { outline: 2px solid #8be3c0; outline-offset: 3px; }
+.header-spacer { margin-left: auto; }
+@media (max-width: 760px) {
+  header { align-items: flex-start; flex-direction: column; }
+  header .mode-nav { width: 100%; justify-content: stretch; }
+  .mode-nav button, .mode-nav .credentials-nav-link { flex: 1; }
+  .header-spacer { display: none; }
+}
+@media (max-width: 720px) { header { flex-wrap: wrap; gap: 12px; } }

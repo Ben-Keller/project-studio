@@ -1,0 +1,7 @@
+{
+  "title": "Untitled walkthrough",
+  "description": "Record and edit a walkthrough in Project Studio.",
+  "defaults": { "moveDurationMs": 780, "scrollDurationMs": 950, "pauseMs": 1250, "circleRadius": 34, "circleDurationMs": 2400 },
+  "start": { "x": 90, "y": 120 },
+  "scenes": [{ "id": "recording", "caption": "", "actions": [] }]
+}
